@@ -1,0 +1,508 @@
+# Opinionated Handlers
+
+Opinionated handlers are ForgeRouter's flagship feature, providing automatic parameter binding, validation, and OpenAPI documentation generation. They eliminate boilerplate code while ensuring type safety and comprehensive API documentation.
+
+## Handler Signature
+
+Every opinionated handler follows this signature:
+
+```go
+func(ctx *router.FastContext, request RequestType) (*ResponseType, error)
+```
+
+- `ctx` - Provides access to the HTTP request/response and router utilities
+- `request` - Your custom struct defining the expected input parameters
+- `*ResponseType` - Your custom struct defining the response format
+- `error` - Standard Go error handling
+
+## Parameter Binding
+
+ForgeRouter automatically binds request data to your struct fields using tags:
+
+### Available Tags
+
+| Tag | Source | Example | Description |
+|-----|---------|---------|-------------|
+| `path` | URL path | `ID int \`path:"id"\`` | Extract from URL parameters |
+| `query` | Query string | `Limit int \`query:"limit"\`` | Extract from query parameters |
+| `header` | HTTP headers | `Auth string \`header:"Authorization"\`` | Extract from HTTP headers |
+| `body` | Request body | `Data string \`body:"body"\`` | Extract from JSON body |
+| `json` | JSON field | `Name string \`json:"name"\`` | Map JSON field names |
+
+### Complete Example
+
+```go
+type UpdateUserRequest struct {
+    // Path parameters
+    ID int `path:"id" description:"User ID to update"`
+
+    // Query parameters
+    Notify bool `query:"notify" description:"Send notification email"`
+
+    // Headers
+    UserAgent string `header:"User-Agent" description:"Client user agent"`
+
+    // JSON body fields
+    Name     string `json:"name" body:"body" description:"User's full name"`
+    Email    string `json:"email" body:"body" description:"User's email address"`
+    Age      int    `json:"age" body:"body" description:"User's age"`
+    Settings map[string]interface{} `json:"settings" body:"body" description:"User preferences"`
+}
+
+type UpdateUserResponse struct {
+    ID       int       `json:"id" description:"User ID"`
+    Name     string    `json:"name" description:"Updated name"`
+    Email    string    `json:"email" description:"Updated email"`
+    Updated  time.Time `json:"updated" description:"Last update timestamp"`
+}
+
+r.OpinionatedPUT("/users/:id", func(ctx *router.FastContext, req UpdateUserRequest) (*UpdateUserResponse, error) {
+    // All parameters are automatically bound and available
+
+    user, err := database.UpdateUser(req.ID, req.Name, req.Email, req.Age)
+    if err != nil {
+        return nil, router.InternalServerError("Failed to update user")
+    }
+
+    if req.Notify {
+        emailService.SendUpdateNotification(user.Email)
+    }
+
+    return &UpdateUserResponse{
+        ID:      user.ID,
+        Name:    user.Name,
+        Email:   user.Email,
+        Updated: time.Now(),
+    }, nil
+}, router.WithSummary("Update User"), router.WithTags("users"))
+```
+
+## Type Conversion
+
+ForgeRouter automatically converts string parameters to appropriate Go types:
+
+```go
+type SearchRequest struct {
+    Query    string    `query:"q" description:"Search query"`
+    Limit    int       `query:"limit" description:"Number of results"`
+    Offset   int       `query:"offset" description:"Result offset"`
+    MinPrice float64   `query:"min_price" description:"Minimum price"`
+    Active   bool      `query:"active" description:"Filter active items only"`
+    Tags     []string  `query:"tags" description:"Filter by tags"`
+}
+
+// URL: /search?q=laptop&limit=20&offset=0&min_price=99.99&active=true&tags=electronics,computers
+// All fields are automatically converted to the correct types
+```
+
+### Supported Types
+
+- **Strings**: `string`
+- **Integers**: `int`, `int8`, `int16`, `int32`, `int64`
+- **Unsigned integers**: `uint`, `uint8`, `uint16`, `uint32`, `uint64`
+- **Floats**: `float32`, `float64`
+- **Booleans**: `bool` (accepts: true/false, 1/0, yes/no, on/off)
+- **Slices**: `[]string`, `[]int`, etc. (comma-separated values)
+
+## Request Body Handling
+
+### Simple Body Binding
+
+For simple cases, bind the entire JSON body to your struct:
+
+```go
+type CreateUserRequest struct {
+    Name  string `json:"name" description:"User name"`
+    Email string `json:"email" description:"User email"`
+    Age   int    `json:"age" description:"User age"`
+}
+
+r.OpinionatedPOST("/users", func(ctx *router.FastContext, req CreateUserRequest) (*User, error) {
+    // Entire JSON body is bound to req
+    return createUser(req.Name, req.Email, req.Age)
+})
+```
+
+### Mixed Parameter Sources
+
+Combine body fields with other parameter sources:
+
+```go
+type UpdateUserRequest struct {
+    ID    int    `path:"id" description:"User ID"`               // From URL path
+    Force bool   `query:"force" description:"Force update"`      // From query string
+    Name  string `json:"name" body:"body" description:"New name"` // From JSON body
+    Email string `json:"email" body:"body" description:"New email"` // From JSON body
+}
+```
+
+### Nested Structures
+
+Handle complex nested JSON:
+
+```go
+type Address struct {
+    Street  string `json:"street" description:"Street address"`
+    City    string `json:"city" description:"City"`
+    Country string `json:"country" description:"Country"`
+    Zip     string `json:"zip" description:"Postal code"`
+}
+
+type CreateUserRequest struct {
+    Name    string  `json:"name" body:"body" description:"User name"`
+    Email   string  `json:"email" body:"body" description:"User email"`
+    Address Address `json:"address" body:"body" description:"User address"`
+}
+
+// JSON body:
+// {
+//   "name": "John Doe",
+//   "email": "john@example.com",
+//   "address": {
+//     "street": "123 Main St",
+//     "city": "New York",
+//     "country": "USA",
+//     "zip": "10001"
+//   }
+// }
+```
+
+## Response Types
+
+### Simple Responses
+
+Return any Go struct as JSON:
+
+```go
+type UserResponse struct {
+    ID       int       `json:"id" description:"User ID"`
+    Name     string    `json:"name" description:"User name"`
+    Created  time.Time `json:"created" description:"Creation timestamp"`
+}
+
+r.OpinionatedGET("/users/:id", func(ctx *router.FastContext, req GetUserRequest) (*UserResponse, error) {
+    user := getUserFromDB(req.ID)
+    return &UserResponse{
+        ID:      user.ID,
+        Name:    user.Name,
+        Created: user.CreatedAt,
+    }, nil
+})
+```
+
+### Custom Status Codes
+
+Use `APIResponse` for custom status codes and headers:
+
+```go
+r.OpinionatedPOST("/users", func(ctx *router.FastContext, req CreateUserRequest) (*router.APIResponse, error) {
+    user := createUser(req)
+
+    return router.Created(user).
+        WithHeader("Location", fmt.Sprintf("/users/%d", user.ID)).
+        WithHeader("X-User-ID", strconv.Itoa(user.ID)), nil
+})
+
+// Or use convenience methods
+return router.OK(user), nil           // 200 OK
+return router.Created(user), nil      // 201 Created
+return router.Accepted(user), nil     // 202 Accepted
+return router.NoContent(), nil        // 204 No Content
+```
+
+### Response Arrays
+
+Return slices for array responses:
+
+```go
+type UserListResponse struct {
+    Users  []User `json:"users" description:"List of users"`
+    Total  int    `json:"total" description:"Total count"`
+    Page   int    `json:"page" description:"Current page"`
+}
+
+r.OpinionatedGET("/users", func(ctx *router.FastContext, req ListUsersRequest) (*UserListResponse, error) {
+    users, total := getUsersFromDB(req.Page, req.Limit)
+
+    return &UserListResponse{
+        Users: users,
+        Total: total,
+        Page:  req.Page,
+    }, nil
+})
+```
+
+## Error Handling
+
+### Built-in Error Types
+
+ForgeRouter provides semantic error constructors:
+
+```go
+r.OpinionatedGET("/users/:id", func(ctx *router.FastContext, req GetUserRequest) (*User, error) {
+    if req.ID <= 0 {
+        return nil, router.BadRequest("Invalid user ID")
+    }
+
+    user, exists := getUserFromDB(req.ID)
+    if !exists {
+        return nil, router.NotFound("User")
+    }
+
+    if !user.Active {
+        return nil, router.Forbidden("User account is deactivated")
+    }
+
+    if !hasPermission(ctx.Request, user) {
+        return nil, router.Unauthorized("Access denied")
+    }
+
+    return user, nil
+})
+```
+
+### Available Error Types
+
+```go
+router.BadRequest("Invalid input")                    // 400 Bad Request
+router.Unauthorized("Authentication required")        // 401 Unauthorized
+router.Forbidden("Access denied")                     // 403 Forbidden
+router.NotFound("User")                              // 404 Not Found
+router.Conflict("Email already exists")              // 409 Conflict
+router.UnprocessableEntity("Validation failed")     // 422 Unprocessable Entity
+router.TooManyRequests("Rate limit exceeded")        // 429 Too Many Requests
+router.InternalServerError("Database error")         // 500 Internal Server Error
+router.ServiceUnavailable("Maintenance mode")        // 503 Service Unavailable
+```
+
+### Validation Errors
+
+For field-level validation errors:
+
+```go
+func validateUser(req CreateUserRequest) error {
+    var fields []router.FieldError
+
+    if req.Name == "" {
+        fields = append(fields, router.NewFieldError("name", "Name is required", req.Name, "REQUIRED"))
+    }
+
+    if !isValidEmail(req.Email) {
+        fields = append(fields, router.NewFieldError("email", "Invalid email format", req.Email, "INVALID_FORMAT"))
+    }
+
+    if req.Age < 18 {
+        fields = append(fields, router.NewFieldError("age", "Must be 18 or older", req.Age, "MIN_AGE"))
+    }
+
+    if len(fields) > 0 {
+        return router.UnprocessableEntity("Validation failed", fields...)
+    }
+
+    return nil
+}
+
+r.OpinionatedPOST("/users", func(ctx *router.FastContext, req CreateUserRequest) (*User, error) {
+    if err := validateUser(req); err != nil {
+        return nil, err
+    }
+
+    return createUser(req), nil
+})
+```
+
+### Custom Business Errors
+
+Create domain-specific errors:
+
+```go
+r.OpinionatedPOST("/orders", func(ctx *router.FastContext, req CreateOrderRequest) (*Order, error) {
+    if !hasInventory(req.ProductID, req.Quantity) {
+        return nil, router.NewBusinessError(
+            http.StatusConflict,
+            "INSUFFICIENT_INVENTORY",
+            "Not enough items in stock",
+            map[string]interface{}{
+                "product_id": req.ProductID,
+                "requested": req.Quantity,
+                "available": getAvailableInventory(req.ProductID),
+            },
+        )
+    }
+
+    return createOrder(req), nil
+})
+```
+
+## Handler Options
+
+Customize your handlers with options:
+
+```go
+r.OpinionatedGET("/users/:id", getUserHandler,
+    router.WithSummary("Get User"),
+    router.WithDescription("Retrieve a user by their unique ID"),
+    router.WithTags("users", "public"),
+)
+
+r.OpinionatedPOST("/users", createUserHandler,
+    router.WithSummary("Create User"),
+    router.WithDescription("Create a new user account"),
+    router.WithTags("users", "admin"),
+)
+```
+
+## Best Practices
+
+import { Callout } from 'nextra/components'
+
+<Callout type="info">
+    **Naming Convention**: Use descriptive names for your request/response types:
+    - `GetUserRequest`, `CreateUserRequest`, `UpdateUserRequest`
+    - `UserResponse`, `UserListResponse`, `UserCreatedResponse`
+</Callout>
+
+### 1. Organize Request/Response Types
+
+```go
+// Group related types together
+type (
+    // User requests
+    GetUserRequest struct {
+        ID int `path:"id" description:"User ID"`
+    }
+
+    CreateUserRequest struct {
+        Name  string `json:"name" body:"body" description:"User name"`
+        Email string `json:"email" body:"body" description:"User email"`
+    }
+
+    UpdateUserRequest struct {
+        ID    int    `path:"id" description:"User ID"`
+        Name  string `json:"name" body:"body" description:"User name"`
+        Email string `json:"email" body:"body" description:"User email"`
+    }
+
+    // User responses
+    UserResponse struct {
+        ID       int       `json:"id" description:"User ID"`
+        Name     string    `json:"name" description:"User name"`
+        Email    string    `json:"email" description:"User email"`
+        Created  time.Time `json:"created" description:"Creation timestamp"`
+    }
+
+    UserListResponse struct {
+        Users []UserResponse `json:"users" description:"List of users"`
+        Total int           `json:"total" description:"Total count"`
+    }
+)
+```
+
+### 2. Validation Patterns
+
+```go
+// Create reusable validation functions
+func validateEmail(email string) error {
+    if !emailRegex.MatchString(email) {
+        return router.NewFieldError("email", "Invalid email format", email, "INVALID_FORMAT")
+    }
+    return nil
+}
+
+func validateUserAge(age int) error {
+    if age < 18 {
+        return router.NewFieldError("age", "Must be 18 or older", age, "MIN_AGE")
+    }
+    if age > 120 {
+        return router.NewFieldError("age", "Must be 120 or younger", age, "MAX_AGE")
+    }
+    return nil
+}
+
+// Use in handlers
+func validateCreateUserRequest(req CreateUserRequest) error {
+    var fields []router.FieldError
+
+    if req.Name == "" {
+        fields = append(fields, router.NewFieldError("name", "Name is required", req.Name, "REQUIRED"))
+    }
+
+    if err := validateEmail(req.Email); err != nil {
+        fields = append(fields, err.(router.FieldError))
+    }
+
+    if err := validateUserAge(req.Age); err != nil {
+        fields = append(fields, err.(router.FieldError))
+    }
+
+    if len(fields) > 0 {
+        return router.UnprocessableEntity("Validation failed", fields...)
+    }
+
+    return nil
+}
+```
+
+### 3. Context Usage
+
+Leverage the FastContext for common operations:
+
+```go
+r.OpinionatedGET("/users/:id", func(ctx *router.FastContext, req GetUserRequest) (*UserResponse, error) {
+    // Access raw HTTP request/response if needed
+    userAgent := ctx.Header("User-Agent")
+    clientIP := ctx.Request.RemoteAddr
+
+    // Use context helpers for errors
+    if req.ID <= 0 {
+        return nil, ctx.BadRequest("Invalid user ID")
+    }
+
+    user, exists := getUserFromDB(req.ID)
+    if !exists {
+        return nil, ctx.NotFound("User")
+    }
+
+    // Use context helpers for responses
+    return ctx.OK(&UserResponse{
+        ID:   user.ID,
+        Name: user.Name,
+    })
+})
+```
+
+## Integration with External Libraries
+
+### With go-playground/validator
+
+```go
+import "github.com/go-playground/validator/v10"
+
+var validate = validator.New()
+
+type CreateUserRequest struct {
+    Name  string `json:"name" validate:"required,min=2,max=50" description:"User name"`
+    Email string `json:"email" validate:"required,email" description:"User email"`
+    Age   int    `json:"age" validate:"min=18,max=120" description:"User age"`
+}
+
+r.OpinionatedPOST("/users", func(ctx *router.FastContext, req CreateUserRequest) (*User, error) {
+    // Validate with go-playground/validator
+    if err := validate.Struct(req); err != nil {
+        var fields []router.FieldError
+        for _, err := range err.(validator.ValidationErrors) {
+            fields = append(fields, router.NewFieldError(
+                err.Field(),
+                err.Error(),
+                err.Value(),
+                err.Tag(),
+            ))
+        }
+        return nil, router.UnprocessableEntity("Validation failed", fields...)
+    }
+
+    return createUser(req), nil
+})
+```
+
+Opinionated handlers make building APIs faster, safer, and more maintainable while automatically generating comprehensive documentation. They're the foundation of ForgeRouter's developer experience.

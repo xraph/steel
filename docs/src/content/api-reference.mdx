@@ -1,0 +1,1009 @@
+# API Reference
+
+Complete API reference for ForgeRouter types, functions, and methods.
+
+## Core Types
+
+### FastRouter
+
+The main router type that implements HTTP routing and middleware support.
+
+```go
+type FastRouter struct {
+    // Private fields
+}
+```
+
+#### Constructor
+
+##### NewRouter() *FastRouter
+
+Creates a new FastRouter instance with default configuration.
+
+```go
+r := router.NewRouter()
+```
+
+#### HTTP Methods
+
+##### GET(pattern string, handler HandlerFunc)
+
+Registers a GET route.
+
+```go
+r.GET("/users", getUsersHandler)
+r.GET("/users/:id", getUserHandler)
+```
+
+##### POST(pattern string, handler HandlerFunc)
+
+Registers a POST route.
+
+```go
+r.POST("/users", createUserHandler)
+```
+
+##### PUT(pattern string, handler HandlerFunc)
+
+Registers a PUT route.
+
+```go
+r.PUT("/users/:id", updateUserHandler)
+```
+
+##### DELETE(pattern string, handler HandlerFunc)
+
+Registers a DELETE route.
+
+```go
+r.DELETE("/users/:id", deleteUserHandler)
+```
+
+##### PATCH(pattern string, handler HandlerFunc)
+
+Registers a PATCH route.
+
+```go
+r.PATCH("/users/:id", patchUserHandler)
+```
+
+##### HEAD(pattern string, handler HandlerFunc)
+
+Registers a HEAD route.
+
+```go
+r.HEAD("/users/:id", headUserHandler)
+```
+
+##### OPTIONS(pattern string, handler HandlerFunc)
+
+Registers an OPTIONS route.
+
+```go
+r.OPTIONS("/users", optionsUserHandler)
+```
+
+##### Handle(method, pattern string, handler HandlerFunc)
+
+Registers a route for any HTTP method.
+
+```go
+r.Handle("GET", "/users", getUsersHandler)
+r.Handle("CUSTOM", "/webhook", customHandler)
+```
+
+##### HandleFunc(method, pattern string, handler http.HandlerFunc)
+
+Registers a route using standard library handler function.
+
+```go
+r.HandleFunc("GET", "/health", func(w http.ResponseWriter, r *http.Request) {
+    w.WriteHeader(http.StatusOK)
+    w.Write([]byte("OK"))
+})
+```
+
+#### Opinionated Handlers
+
+##### OpinionatedGET(pattern string, handler interface{}, opts ...HandlerOption)
+
+Registers a type-safe GET handler with automatic OpenAPI generation.
+
+```go
+r.OpinionatedGET("/users/:id", func(ctx *router.FastContext, req GetUserRequest) (*User, error) {
+    // Handler implementation
+}, router.WithSummary("Get User"), router.WithTags("users"))
+```
+
+##### OpinionatedPOST(pattern string, handler interface{}, opts ...HandlerOption)
+
+Registers a type-safe POST handler.
+
+```go
+r.OpinionatedPOST("/users", createUserHandler,
+    router.WithSummary("Create User"))
+```
+
+##### OpinionatedPUT(pattern string, handler interface{}, opts ...HandlerOption)
+
+Registers a type-safe PUT handler.
+
+##### OpinionatedDELETE(pattern string, handler interface{}, opts ...HandlerOption)
+
+Registers a type-safe DELETE handler.
+
+##### OpinionatedPATCH(pattern string, handler interface{}, opts ...HandlerOption)
+
+Registers a type-safe PATCH handler.
+
+#### Route Organization
+
+##### Route(pattern string, fn func(Router)) Router
+
+Creates a route group with a common path prefix.
+
+```go
+r.Route("/api/v1", func(api router.Router) {
+    api.GET("/users", getUsersHandler)
+    api.POST("/users", createUserHandler)
+})
+```
+
+##### Group(fn func(Router)) Router
+
+Creates a route group without a path prefix.
+
+```go
+r.Group(func(group router.Router) {
+    group.Use(authMiddleware)
+    group.GET("/protected", protectedHandler)
+})
+```
+
+##### Mount(pattern string, handler http.Handler)
+
+Mounts an HTTP handler or sub-router at the specified path.
+
+```go
+fileServer := http.FileServer(http.Dir("./static"))
+r.Mount("/static", fileServer)
+```
+
+#### Middleware
+
+##### Use(middleware ...MiddlewareFunc)
+
+Adds middleware to the router.
+
+```go
+r.Use(router.Logger, router.Recoverer)
+r.Use(customMiddleware)
+```
+
+#### WebSocket & SSE
+
+##### WebSocket(pattern string, handler interface{}, opts ...AsyncHandlerOption)
+
+Registers a WebSocket handler.
+
+```go
+r.WebSocket("/ws/chat", chatHandler,
+    router.WithAsyncSummary("Chat WebSocket"))
+```
+
+##### SSE(pattern string, handler interface{}, opts ...AsyncHandlerOption)
+
+Registers a Server-Sent Events handler.
+
+```go
+r.SSE("/sse/events", eventsHandler,
+    router.WithAsyncSummary("Event Stream"))
+```
+
+#### Documentation
+
+##### EnableOpenAPI()
+
+Enables OpenAPI documentation generation and endpoints.
+
+```go
+r.EnableOpenAPI()
+// Serves documentation at /openapi/docs
+```
+
+##### EnableAsyncAPI()
+
+Enables AsyncAPI documentation for WebSocket and SSE endpoints.
+
+```go
+r.EnableAsyncAPI()
+// Serves documentation at /asyncapi/docs
+```
+
+#### Configuration
+
+##### SetTrailingSlashRedirect(enabled bool)
+
+Configures automatic trailing slash redirection.
+
+```go
+r.SetTrailingSlashRedirect(true)
+```
+
+##### SetFixedPathRedirect(enabled bool)
+
+Configures automatic path case fixing.
+
+```go
+r.SetFixedPathRedirect(true)
+```
+
+##### SetNotFoundHandler(handler http.Handler)
+
+Sets custom 404 Not Found handler.
+
+```go
+r.SetNotFoundHandler(customNotFoundHandler)
+```
+
+##### SetMethodNotAllowedHandler(handler http.Handler)
+
+Sets custom 405 Method Not Allowed handler.
+
+```go
+r.SetMethodNotAllowedHandler(customMethodNotAllowedHandler)
+```
+
+#### Connection Management
+
+##### ConnectionManager() *ConnectionManager
+
+Returns the connection manager for WebSocket and SSE connections.
+
+```go
+cm := r.ConnectionManager()
+connections := cm.WSConnections()
+```
+
+#### Debugging
+
+##### DebugRoutes()
+
+Prints the internal route tree structure for debugging.
+
+```go
+r.DebugRoutes()
+```
+
+### FastContext
+
+Enhanced context for opinionated handlers with utility methods.
+
+```go
+type FastContext struct {
+    Request  *http.Request
+    Response http.ResponseWriter
+    // Private fields
+}
+```
+
+#### Parameter Access
+
+##### Param(key string) string
+
+Gets a URL path parameter value.
+
+```go
+userID := ctx.Param("id")
+```
+
+##### Query(key string) string
+
+Gets a query parameter value.
+
+```go
+page := ctx.Query("page")
+```
+
+##### Header(key string) string
+
+Gets a request header value.
+
+```go
+contentType := ctx.Header("Content-Type")
+```
+
+#### Request Body
+
+##### BindJSON(v interface{}) error
+
+Binds JSON request body to a struct.
+
+```go
+var req CreateUserRequest
+err := ctx.BindJSON(&req)
+```
+
+#### Response Methods
+
+##### JSON(status int, data interface{}) error
+
+Sends a JSON response.
+
+```go
+ctx.JSON(http.StatusOK, user)
+```
+
+##### Status(status int) *FastContext
+
+Sets the response status code.
+
+```go
+ctx.Status(http.StatusCreated)
+```
+
+#### Error Helpers
+
+##### BadRequest(message string, details ...interface{}) error
+
+Returns a 400 Bad Request error.
+
+```go
+return ctx.BadRequest("Invalid input")
+```
+
+##### Unauthorized(message string, details ...interface{}) error
+
+Returns a 401 Unauthorized error.
+
+##### Forbidden(message string, details ...interface{}) error
+
+Returns a 403 Forbidden error.
+
+##### NotFound(resource string, details ...interface{}) error
+
+Returns a 404 Not Found error.
+
+```go
+return ctx.NotFound("User")
+```
+
+##### Conflict(message string, details ...interface{}) error
+
+Returns a 409 Conflict error.
+
+##### ValidationError(message string, fields ...FieldError) error
+
+Returns a 422 Unprocessable Entity error with field validation details.
+
+##### InternalError(message string, details ...interface{}) error
+
+Returns a 500 Internal Server Error.
+
+#### Success Response Helpers
+
+##### OK(data interface{}) (*APIResponse, error)
+
+Returns a 200 OK response.
+
+```go
+return ctx.OK(user)
+```
+
+##### Created(data interface{}) (*APIResponse, error)
+
+Returns a 201 Created response.
+
+##### Accepted(data interface{}) (*APIResponse, error)
+
+Returns a 202 Accepted response.
+
+##### NoContent() (*APIResponse, error)
+
+Returns a 204 No Content response.
+
+## Error Types
+
+### APIError
+
+Interface for structured API errors.
+
+```go
+type APIError interface {
+    Error() string
+    StatusCode() int
+    ErrorCode() string
+    Details() interface{}
+    ToResponse() ErrorResponse
+}
+```
+
+### HTTPError
+
+Standard HTTP error implementation.
+
+```go
+type HTTPError struct {
+    Status    int         `json:"status"`
+    Code      string      `json:"code"`
+    Message   string      `json:"message"`
+    Detail    interface{} `json:"detail,omitempty"`
+    Timestamp time.Time   `json:"timestamp"`
+    RequestID string      `json:"request_id,omitempty"`
+    Path      string      `json:"path,omitempty"`
+}
+```
+
+### ValidationError
+
+Error with field-specific validation details.
+
+```go
+type ValidationError struct {
+    HTTPError
+    Fields []FieldError `json:"fields"`
+}
+```
+
+### FieldError
+
+Field-specific validation error.
+
+```go
+type FieldError struct {
+    Field   string      `json:"field"`
+    Message string      `json:"message"`
+    Value   interface{} `json:"value,omitempty"`
+    Code    string      `json:"code,omitempty"`
+}
+```
+
+## Error Constructors
+
+### BadRequest(message string, details ...interface{}) *HTTPError
+
+Creates a 400 Bad Request error.
+
+```go
+err := router.BadRequest("Invalid input format")
+```
+
+### Unauthorized(message string, details ...interface{}) *HTTPError
+
+Creates a 401 Unauthorized error.
+
+```go
+err := router.Unauthorized("Authentication required")
+```
+
+### Forbidden(message string, details ...interface{}) *HTTPError
+
+Creates a 403 Forbidden error.
+
+```go
+err := router.Forbidden("Access denied")
+```
+
+### NotFound(resource string, details ...interface{}) *HTTPError
+
+Creates a 404 Not Found error.
+
+```go
+err := router.NotFound("User")
+```
+
+### Conflict(message string, details ...interface{}) *HTTPError
+
+Creates a 409 Conflict error.
+
+```go
+err := router.Conflict("Email already exists")
+```
+
+### UnprocessableEntity(message string, fields ...FieldError) *ValidationError
+
+Creates a 422 Unprocessable Entity error with validation details.
+
+```go
+fields := []router.FieldError{
+    router.NewFieldError("email", "Invalid format", "invalid-email", "INVALID_FORMAT"),
+}
+err := router.UnprocessableEntity("Validation failed", fields...)
+```
+
+### InternalServerError(message string, details ...interface{}) *HTTPError
+
+Creates a 500 Internal Server Error.
+
+```go
+err := router.InternalServerError("Database connection failed")
+```
+
+### TooManyRequests(message string, retryAfter ...int) *HTTPError
+
+Creates a 429 Too Many Requests error.
+
+```go
+err := router.TooManyRequests("Rate limit exceeded", 60)
+```
+
+### ServiceUnavailable(message string, details ...interface{}) *HTTPError
+
+Creates a 503 Service Unavailable error.
+
+```go
+err := router.ServiceUnavailable("Maintenance mode")
+```
+
+### NewBusinessError(status int, businessCode, message string, context interface{}) *BusinessError
+
+Creates a custom business logic error.
+
+```go
+err := router.NewBusinessError(http.StatusConflict, "INSUFFICIENT_FUNDS",
+    "Not enough balance", map[string]interface{}{"balance": 100})
+```
+
+### NewFieldError(field, message string, value interface{}, codes ...string) FieldError
+
+Creates a field validation error.
+
+```go
+fieldErr := router.NewFieldError("email", "Invalid email format", "invalid-email", "INVALID_FORMAT")
+```
+
+## Response Types
+
+### APIResponse
+
+Custom response with status code and headers.
+
+```go
+type APIResponse struct {
+    StatusCode int
+    Data       interface{}
+    Headers    map[string]string
+}
+```
+
+#### Constructors
+
+##### OK(data interface{}) *APIResponse
+
+Creates a 200 OK response.
+
+```go
+response := router.OK(userData)
+```
+
+##### Created(data interface{}) *APIResponse
+
+Creates a 201 Created response.
+
+```go
+response := router.Created(newUser)
+```
+
+##### Accepted(data interface{}) *APIResponse
+
+Creates a 202 Accepted response.
+
+##### NoContent() *APIResponse
+
+Creates a 204 No Content response.
+
+```go
+response := router.NoContent()
+```
+
+#### Methods
+
+##### WithHeader(key, value string) *APIResponse
+
+Adds a header to the response.
+
+```go
+response := router.Created(user).
+    WithHeader("Location", "/users/123").
+    WithHeader("X-User-ID", "123")
+```
+
+## WebSocket Types
+
+### WSConnection
+
+Represents an active WebSocket connection.
+
+```go
+type WSConnection struct {
+    // Private fields
+}
+```
+
+#### Methods
+
+##### SendMessage(message WSMessage) error
+
+Sends a message to the WebSocket client.
+
+```go
+err := conn.SendMessage(router.WSMessage{
+    Type:    "notification",
+    Payload: data,
+})
+```
+
+##### ReadMessage() (WSMessage, error)
+
+Reads a message from the WebSocket client.
+
+##### Close() error
+
+Closes the WebSocket connection.
+
+##### Param(key string) string
+
+Gets a URL parameter from the WebSocket route.
+
+```go
+roomID := conn.Param("room_id")
+```
+
+##### SetMetadata(key string, value interface{})
+
+Stores metadata associated with the connection.
+
+```go
+conn.SetMetadata("user_id", 123)
+```
+
+##### GetMetadata(key string) (interface{}, bool)
+
+Retrieves metadata associated with the connection.
+
+```go
+userID, ok := conn.GetMetadata("user_id")
+```
+
+##### Request() *http.Request
+
+Returns the original HTTP request that initiated the WebSocket connection.
+
+### WSMessage
+
+WebSocket message structure.
+
+```go
+type WSMessage struct {
+    Type    string      `json:"type"`
+    Payload interface{} `json:"payload"`
+    ID      string      `json:"id,omitempty"`
+    Error   *WSError    `json:"error,omitempty"`
+}
+```
+
+### WSError
+
+WebSocket error structure.
+
+```go
+type WSError struct {
+    Code    string      `json:"code"`
+    Message string      `json:"message"`
+    Details interface{} `json:"details,omitempty"`
+}
+```
+
+## Server-Sent Events Types
+
+### SSEConnection
+
+Represents an active SSE connection.
+
+```go
+type SSEConnection struct {
+    // Private fields
+}
+```
+
+#### Methods
+
+##### SendMessage(message SSEMessage) error
+
+Sends an SSE message to the client.
+
+```go
+err := conn.SendMessage(router.SSEMessage{
+    Event: "update",
+    Data:  data,
+})
+```
+
+##### Close()
+
+Closes the SSE connection.
+
+##### IsClosed() bool
+
+Checks if the connection is closed.
+
+##### Param(key string) string
+
+Gets a URL parameter from the SSE route.
+
+##### SetMetadata(key string, value interface{})
+
+Stores metadata associated with the connection.
+
+##### GetMetadata(key string) (interface{}, bool)
+
+Retrieves metadata associated with the connection.
+
+##### Request() *http.Request
+
+Returns the original HTTP request.
+
+### SSEMessage
+
+Server-Sent Events message structure.
+
+```go
+type SSEMessage struct {
+    ID    string      `json:"id,omitempty"`
+    Event string      `json:"event,omitempty"`
+    Data  interface{} `json:"data"`
+    Retry int         `json:"retry,omitempty"`
+}
+```
+
+## Connection Management
+
+### ConnectionManager
+
+Manages WebSocket and SSE connections.
+
+```go
+type ConnectionManager struct {
+    // Private fields
+}
+```
+
+#### Methods
+
+##### WSConnections() map[string]*WSConnection
+
+Returns all active WebSocket connections.
+
+```go
+connections := cm.WSConnections()
+```
+
+##### SSEConnections() map[string]*SSEConnection
+
+Returns all active SSE connections.
+
+##### AddWSConnection(id string, conn *WSConnection)
+
+Adds a WebSocket connection.
+
+##### RemoveWSConnection(id string)
+
+Removes a WebSocket connection.
+
+##### AddSSEConnection(id string, conn *SSEConnection)
+
+Adds an SSE connection.
+
+##### RemoveSSEConnection(id string)
+
+Removes an SSE connection.
+
+##### BroadcastWS(message WSMessage)
+
+Broadcasts a message to all WebSocket connections.
+
+```go
+cm.BroadcastWS(router.WSMessage{
+    Type:    "announcement",
+    Payload: "Server maintenance in 5 minutes",
+})
+```
+
+##### BroadcastSSE(message SSEMessage)
+
+Broadcasts a message to all SSE connections.
+
+## Built-in Middleware
+
+### Logger
+
+Logs HTTP requests with method, path, and duration.
+
+```go
+r.Use(router.Logger)
+```
+
+### Recoverer
+
+Recovers from panics and returns 500 Internal Server Error.
+
+```go
+r.Use(router.Recoverer)
+```
+
+### Timeout(timeout time.Duration) MiddlewareFunc
+
+Creates a timeout middleware with the specified duration.
+
+```go
+r.Use(router.Timeout(30 * time.Second))
+```
+
+## Handler Options
+
+### WithSummary(summary string) HandlerOption
+
+Sets the OpenAPI summary for a handler.
+
+```go
+router.WithSummary("Get user by ID")
+```
+
+### WithDescription(description string) HandlerOption
+
+Sets the OpenAPI description for a handler.
+
+```go
+router.WithDescription("Retrieves detailed user information")
+```
+
+### WithTags(tags ...string) HandlerOption
+
+Sets OpenAPI tags for a handler.
+
+```go
+router.WithTags("users", "public")
+```
+
+## Async Handler Options
+
+### WithAsyncSummary(summary string) AsyncHandlerOption
+
+Sets the AsyncAPI summary for WebSocket/SSE handlers.
+
+```go
+router.WithAsyncSummary("Real-time chat")
+```
+
+### WithAsyncDescription(description string) AsyncHandlerOption
+
+Sets the AsyncAPI description for WebSocket/SSE handlers.
+
+### WithAsyncTags(tags ...string) AsyncHandlerOption
+
+Sets AsyncAPI tags for WebSocket/SSE handlers.
+
+## Utility Functions
+
+### URLParam(r *http.Request, key string) string
+
+Extracts a URL parameter from the request context.
+
+```go
+userID := router.URLParam(r, "id")
+```
+
+### ParamsFromContext(ctx context.Context) *Params
+
+Gets the parameters object from the request context.
+
+```go
+params := router.ParamsFromContext(r.Context())
+userID := params.Get("id")
+```
+
+## Testing Utilities
+
+### NewTestRouter() *TestRouterBuilder
+
+Creates a new test router builder.
+
+```go
+testRouter := router.NewTestRouter().
+    WithAuth("test-token").
+    WithRoute("GET", "/users", handler).
+    Build()
+```
+
+### NewRequest(method, path string) *RequestBuilder
+
+Creates a new test request builder.
+
+```go
+response := router.NewRequest("GET", "/users/123").
+    WithAuth("token").
+    Execute(testRouter)
+```
+
+### AssertResponse(t *testing.T, response *TestResponse) *ResponseAssertion
+
+Creates response assertions for testing.
+
+```go
+router.AssertResponse(t, response).
+    Status(http.StatusOK).
+    JSON("id", float64(123))
+```
+
+### MockHandler(statusCode int, body string) HandlerFunc
+
+Creates a mock handler for testing.
+
+```go
+handler := router.MockHandler(http.StatusOK, "Hello World")
+```
+
+### RunLoadTest(router *FastRouter, config LoadTestConfig) LoadTestResult
+
+Runs a load test against the router.
+
+```go
+result := router.RunLoadTest(testRouter, router.LoadTestConfig{
+    Concurrency: 10,
+    Requests:    1000,
+    Timeout:     30 * time.Second,
+    Paths:       []string{"/api/users"},
+})
+```
+
+## Types
+
+### HandlerFunc
+
+Standard HTTP handler function type.
+
+```go
+type HandlerFunc func(http.ResponseWriter, *http.Request)
+```
+
+### MiddlewareFunc
+
+Middleware function type.
+
+```go
+type MiddlewareFunc func(http.Handler) http.Handler
+```
+
+### Router
+
+Interface for router functionality.
+
+```go
+type Router interface {
+    Use(middleware ...MiddlewareFunc)
+    GET(pattern string, handler HandlerFunc)
+    POST(pattern string, handler HandlerFunc)
+    // ... other methods
+}
+```
+
+### HandlerOption
+
+Option for configuring opinionated handlers.
+
+```go
+type HandlerOption func(*HandlerInfo)
+```
+
+### AsyncHandlerOption
+
+Option for configuring WebSocket and SSE handlers.
+
+```go
+type AsyncHandlerOption interface {
+    ApplyToWS(*WSHandlerInfo)
+    ApplyToSSE(*SSEHandlerInfo)
+}
+```
+
+This API reference covers the main public interface of ForgeRouter. For implementation details and internal types, refer to the source code documentation.

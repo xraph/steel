@@ -1,0 +1,804 @@
+# Testing
+
+ForgeRouter includes comprehensive testing utilities that make it easy to test your APIs with minimal boilerplate. From simple unit tests to complex integration tests and load testing, ForgeRouter has you covered.
+
+## Quick Start
+
+Here's a simple test using ForgeRouter's testing utilities:
+
+```go
+func TestUserAPI(t *testing.T) {
+    // Set up test router
+    router := router.NewTestRouter().
+        WithRoute("GET", "/users/:id", getUserHandler).
+        WithRoute("POST", "/users", createUserHandler).
+        Build()
+
+    // Test getting a user
+    response := router.NewRequest("GET", "/users/123").
+        Execute(router)
+
+    router.AssertResponse(t, response).
+        Status(http.StatusOK).
+        IsJSON().
+        JSON("id", float64(123)).
+        JSON("name", "John Doe")
+}
+```
+
+## Test Router Builder
+
+The `TestRouterBuilder` helps you create routers for testing with common middleware and configurations:
+
+### Basic Setup
+
+```go
+func setupTestRouter() *router.FastRouter {
+    return router.NewTestRouter().
+        WithMiddleware(router.Logger).
+        WithRecovery().
+        WithCORS().
+        WithAuth("test-token").
+        WithRoute("GET", "/health", router.MockHandler(http.StatusOK, "OK")).
+        Build()
+}
+```
+
+### Builder Options
+
+```go
+// Add middleware
+router.NewTestRouter().
+    WithMiddleware(router.Logger, router.Recoverer).
+    WithLogging().
+    WithRecovery().
+    WithTimeout(30 * time.Second)
+
+// Add authentication
+router.NewTestRouter().
+    WithAuth("valid-token") // Simple bearer token auth
+
+// Add CORS support
+router.NewTestRouter().
+    WithCORS()
+
+// Add routes
+router.NewTestRouter().
+    WithRoute("GET", "/users", handler).
+    WithOpinionatedRoute("POST", "/users", opinionatedHandler).
+    WithOpenAPI()
+```
+
+### Complete Example
+
+```go
+func TestCompleteAPI(t *testing.T) {
+    // Mock database
+    userDB := &MockUserDB{
+        users: []User{
+            {ID: 1, Name: "Alice", Email: "alice@example.com"},
+            {ID: 2, Name: "Bob", Email: "bob@example.com"},
+        },
+    }
+
+    // Build test router
+    router := router.NewTestRouter().
+        WithAuth("test-token").
+        WithRecovery().
+        WithOpinionatedRoute("GET", "/users/:id", func(ctx *router.FastContext, req GetUserRequest) (*User, error) {
+            user, exists := userDB.GetUser(req.ID)
+            if !exists {
+                return nil, router.NotFound("User")
+            }
+            return user, nil
+        }).
+        WithOpinionatedRoute("POST", "/users", func(ctx *router.FastContext, req CreateUserRequest) (*User, error) {
+            user := userDB.CreateUser(req.Name, req.Email)
+            return user, nil
+        }).
+        Build()
+
+    // Test cases
+    testCases := []struct {
+        name     string
+        test     func(t *testing.T)
+    }{
+        {"Get existing user", testGetExistingUser},
+        {"Get non-existent user", testGetNonExistentUser},
+        {"Create new user", testCreateUser},
+        {"Unauthorized access", testUnauthorized},
+    }
+
+    for _, tc := range testCases {
+        t.Run(tc.name, func(t *testing.T) {
+            tc.test(t)
+        })
+    }
+}
+```
+
+## Request Builder
+
+The `RequestBuilder` provides a fluent API for creating test requests:
+
+### Basic Requests
+
+```go
+// Simple GET request
+response := router.NewRequest("GET", "/users/123").
+    Execute(router)
+
+// POST with JSON body
+response := router.NewRequest("POST", "/users").
+    WithJSON(map[string]interface{}{
+        "name":  "John Doe",
+        "email": "john@example.com",
+        "age":   30,
+    }).
+    Execute(router)
+
+// Request with headers
+response := router.NewRequest("GET", "/protected").
+    WithHeader("Authorization", "Bearer token123").
+    WithHeader("X-Request-ID", "test-123").
+    Execute(router)
+```
+
+### Query Parameters
+
+```go
+response := router.NewRequest("GET", "/users").
+    WithQuery("page", "1").
+    WithQuery("limit", "10").
+    WithQuery("search", "john").
+    Execute(router)
+
+// URL: /users?page=1&limit=10&search=john
+```
+
+### Authentication
+
+```go
+// Bearer token
+response := router.NewRequest("GET", "/protected").
+    WithAuth("your-token").
+    Execute(router)
+
+// Custom header
+response := router.NewRequest("GET", "/api").
+    WithHeader("X-API-Key", "api-key-123").
+    Execute(router)
+```
+
+### Different Body Types
+
+```go
+// JSON body
+response := router.NewRequest("POST", "/users").
+    WithJSON(user).
+    Execute(router)
+
+// String body
+response := router.NewRequest("POST", "/webhook").
+    WithBody("raw webhook payload").
+    Execute(router)
+
+// Byte body
+response := router.NewRequest("POST", "/upload").
+    WithBody([]byte("binary data")).
+    Execute(router)
+```
+
+## Response Assertions
+
+The `ResponseAssertion` provides fluent assertions for testing responses:
+
+### Status Code Assertions
+
+```go
+router.AssertResponse(t, response).
+    Status(http.StatusOK)
+
+router.AssertResponse(t, response).
+    Status(http.StatusCreated)
+
+router.AssertResponse(t, response).
+    Status(http.StatusNotFound)
+```
+
+### Body Assertions
+
+```go
+// Exact body match
+router.AssertResponse(t, response).
+    Body("Expected response body")
+
+// Body contains
+router.AssertResponse(t, response).
+    BodyContains("partial text")
+
+// JSON validation
+router.AssertResponse(t, response).
+    IsJSON()
+```
+
+### JSON Field Assertions
+
+```go
+router.AssertResponse(t, response).
+    IsJSON().
+    JSON("id", float64(123)).          // JSON numbers are float64
+    JSON("name", "John Doe").
+    JSON("active", true).
+    JSONExists("created_at").
+    JSONExists("updated_at")
+
+// Nested JSON fields
+router.AssertResponse(t, response).
+    JSON("user.profile.name", "John").
+    JSON("settings.theme", "dark")
+```
+
+### Header Assertions
+
+```go
+router.AssertResponse(t, response).
+    Header("Content-Type", "application/json").
+    HeaderExists("X-Request-ID").
+    Header("Location", "/users/123")
+```
+
+### Chaining Assertions
+
+```go
+router.AssertResponse(t, response).
+    Status(http.StatusCreated).
+    Header("Content-Type", "application/json").
+    Header("Location", "/users/123").
+    IsJSON().
+    JSON("id", float64(123)).
+    JSON("name", "John Doe").
+    JSONExists("created_at")
+```
+
+## Mock Handlers
+
+ForgeRouter provides utilities for creating mock handlers:
+
+### Simple Mocks
+
+```go
+// Simple response
+handler := router.MockHandler(http.StatusOK, "Hello World")
+
+// JSON response
+handler := router.MockJSONHandler(http.StatusOK, map[string]interface{}{
+    "message": "Success",
+    "data":    []string{"item1", "item2"},
+})
+
+// Error response
+handler := router.MockErrorHandler(router.BadRequest("Invalid input"))
+```
+
+### Dynamic Mocks
+
+```go
+func mockUserHandler(t *testing.T) router.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        userID := router.URLParam(r, "id")
+
+        switch userID {
+        case "1":
+            router.MockJSONHandler(http.StatusOK, User{
+                ID:   1,
+                Name: "Alice",
+            })(w, r)
+        case "999":
+            router.MockErrorHandler(router.NotFound("User"))(w, r)
+        default:
+            router.MockJSONHandler(http.StatusOK, User{
+                ID:   2,
+                Name: "Default User",
+            })(w, r)
+        }
+    }
+}
+```
+
+## Integration Testing
+
+### Complete API Testing
+
+```go
+func TestUserAPIIntegration(t *testing.T) {
+    // Set up test database
+    db := setupTestDB(t)
+    defer db.Close()
+
+    // Create router with real handlers
+    r := router.NewTestRouter().
+        WithAuth("test-token").
+        WithOpinionatedRoute("GET", "/users/:id", func(ctx *router.FastContext, req GetUserRequest) (*User, error) {
+            return getUserFromDB(db, req.ID)
+        }).
+        WithOpinionatedRoute("POST", "/users", func(ctx *router.FastContext, req CreateUserRequest) (*User, error) {
+            return createUserInDB(db, req)
+        }).
+        WithOpinionatedRoute("PUT", "/users/:id", func(ctx *router.FastContext, req UpdateUserRequest) (*User, error) {
+            return updateUserInDB(db, req)
+        }).
+        WithOpinionatedRoute("DELETE", "/users/:id", func(ctx *router.FastContext, req DeleteUserRequest) (*router.APIResponse, error) {
+            err := deleteUserFromDB(db, req.ID)
+            if err != nil {
+                return nil, err
+            }
+            return router.NoContent(), nil
+        }).
+        Build()
+
+    t.Run("CRUD Operations", func(t *testing.T) {
+        // Create user
+        createResp := router.NewRequest("POST", "/users").
+            WithAuth("test-token").
+            WithJSON(map[string]interface{}{
+                "name":  "Integration Test User",
+                "email": "test@example.com",
+                "age":   25,
+            }).
+            Execute(r)
+
+        router.AssertResponse(t, createResp).
+            Status(http.StatusOK).
+            IsJSON().
+            JSON("name", "Integration Test User").
+            JSONExists("id")
+
+        // Extract created user ID
+        userID := int(createResp.JSON["id"].(float64))
+
+        // Get user
+        getResp := router.NewRequest("GET", fmt.Sprintf("/users/%d", userID)).
+            WithAuth("test-token").
+            Execute(r)
+
+        router.AssertResponse(t, getResp).
+            Status(http.StatusOK).
+            JSON("id", float64(userID)).
+            JSON("name", "Integration Test User")
+
+        // Update user
+        updateResp := router.NewRequest("PUT", fmt.Sprintf("/users/%d", userID)).
+            WithAuth("test-token").
+            WithJSON(map[string]interface{}{
+                "name":  "Updated User",
+                "email": "updated@example.com",
+                "age":   26,
+            }).
+            Execute(r)
+
+        router.AssertResponse(t, updateResp).
+            Status(http.StatusOK).
+            JSON("name", "Updated User")
+
+        // Delete user
+        deleteResp := router.NewRequest("DELETE", fmt.Sprintf("/users/%d", userID)).
+            WithAuth("test-token").
+            Execute(r)
+
+        router.AssertResponse(t, deleteResp).
+            Status(http.StatusNoContent)
+
+        // Verify deletion
+        getDeletedResp := router.NewRequest("GET", fmt.Sprintf("/users/%d", userID)).
+            WithAuth("test-token").
+            Execute(r)
+
+        router.AssertResponse(t, getDeletedResp).
+            Status(http.StatusNotFound)
+    })
+}
+```
+
+### Middleware Testing
+
+```go
+func TestAuthMiddleware(t *testing.T) {
+    r := router.NewTestRouter().
+        WithAuth("valid-token").
+        WithRoute("GET", "/protected", router.MockHandler(http.StatusOK, "Protected")).
+        Build()
+
+    testCases := []struct {
+        name       string
+        token      string
+        statusCode int
+    }{
+        {"Valid token", "valid-token", http.StatusOK},
+        {"Invalid token", "invalid-token", http.StatusUnauthorized},
+        {"No token", "", http.StatusUnauthorized},
+    }
+
+    for _, tc := range testCases {
+        t.Run(tc.name, func(t *testing.T) {
+            req := router.NewRequest("GET", "/protected")
+
+            if tc.token != "" {
+                req = req.WithAuth(tc.token)
+            }
+
+            response := req.Execute(r)
+
+            router.AssertResponse(t, response).
+                Status(tc.statusCode)
+        })
+    }
+}
+```
+
+## Load Testing
+
+ForgeRouter includes built-in load testing capabilities:
+
+### Basic Load Test
+
+```go
+func TestAPIPerformance(t *testing.T) {
+    r := setupTestRouter()
+
+    config := router.LoadTestConfig{
+        Concurrency: 10,           // 10 concurrent users
+        Requests:    1000,         // 1000 total requests
+        Timeout:     30 * time.Second,
+        Paths:       []string{"/users", "/health"},
+    }
+
+    result := router.RunLoadTest(r, config)
+
+    // Assert performance metrics
+    router.AssertTrue(t, result.SuccessRequests > 950) // 95% success rate
+    router.AssertTrue(t, result.RequestsPerSecond > 100) // At least 100 RPS
+    router.AssertTrue(t, result.AverageLatency < 100*time.Millisecond) // Under 100ms average
+
+    t.Logf("Performance Results:")
+    t.Logf("  Requests per second: %.2f", result.RequestsPerSecond)
+    t.Logf("  Average latency: %v", result.AverageLatency)
+    t.Logf("  Success rate: %.2f%%", float64(result.SuccessRequests*100)/float64(result.TotalRequests))
+}
+```
+
+### Custom Load Test
+
+```go
+func TestUserAPILoad(t *testing.T) {
+    r := setupUserAPI()
+
+    // Test different endpoints with different loads
+    endpoints := []struct {
+        path        string
+        concurrency int
+        requests    int
+    }{
+        {"/users", 5, 500},
+        {"/users/1", 10, 1000},
+        {"/health", 20, 2000},
+    }
+
+    for _, endpoint := range endpoints {
+        t.Run(endpoint.path, func(t *testing.T) {
+            config := router.LoadTestConfig{
+                Concurrency: endpoint.concurrency,
+                Requests:    endpoint.requests,
+                Timeout:     30 * time.Second,
+                Paths:       []string{endpoint.path},
+            }
+
+            result := router.RunLoadTest(r, config)
+
+            if result.FailedRequests > 0 {
+                t.Errorf("Load test failed: %d failed requests", result.FailedRequests)
+            }
+
+            t.Logf("%s - RPS: %.2f, Avg Latency: %v",
+                endpoint.path, result.RequestsPerSecond, result.AverageLatency)
+        })
+    }
+}
+```
+
+## Benchmark Testing
+
+Use Go's built-in benchmarking with ForgeRouter's utilities:
+
+### Basic Benchmarks
+
+```go
+func BenchmarkUserAPI(b *testing.B) {
+    r := setupTestRouter()
+
+    b.ResetTimer()
+    b.RunParallel(func(pb *testing.PB) {
+        for pb.Next() {
+            response := router.NewRequest("GET", "/users/1").
+                Execute(r)
+
+            if response.StatusCode != http.StatusOK {
+                b.Errorf("Expected 200, got %d", response.StatusCode)
+            }
+        }
+    })
+}
+```
+
+### Benchmark Setup Helper
+
+```go
+func BenchmarkRouterPerformance(b *testing.B) {
+    setup := router.NewBenchmarkSetup().
+        AddStaticRoutes(100).        // Add 100 static routes
+        AddParameterRoutes(50).      // Add 50 parameter routes
+        AddRoute("GET", "/complex/:id/nested/:nested", router.MockHandler(http.StatusOK, "OK"))
+
+    r := setup.Setup()
+
+    paths := []string{
+        "/route1", "/route50", "/route99",
+        "/param1/123", "/param25/456", "/param49/789",
+        "/complex/123/nested/456",
+    }
+
+    b.ResetTimer()
+
+    for i := 0; i < b.N; i++ {
+        path := paths[i%len(paths)]
+        req, _ := router.NewRequest("GET", path).Build()
+
+        w := httptest.NewRecorder()
+        r.ServeHTTP(w, req)
+
+        if w.Code != http.StatusOK {
+            b.Errorf("Expected 200, got %d for path %s", w.Code, path)
+        }
+    }
+}
+```
+
+## Test Utilities
+
+### Helper Functions
+
+```go
+// Assert functions
+router.AssertEqual(t, expected, actual)
+router.AssertNotEqual(t, expected, actual)
+router.AssertTrue(t, condition)
+router.AssertFalse(t, condition)
+router.AssertContains(t, haystack, needle)
+router.AssertNotContains(t, haystack, needle)
+router.AssertNoError(t, err)
+router.AssertError(t, err)
+router.AssertPanic(t, func() { /* code that should panic */ })
+
+// JSON utilities
+data := router.MustMarshalJSON(map[string]string{"key": "value"})
+router.MustUnmarshalJSON(data, &result)
+
+// Test data generators
+users := router.CreateTestUsers(10) // Creates 10 test users
+```
+
+### Table-Driven Tests
+
+```go
+func TestUserValidation(t *testing.T) {
+    r := setupTestRouter()
+
+    testCases := []struct {
+        name         string
+        user         map[string]interface{}
+        expectedCode int
+        expectedError string
+    }{
+        {
+            name: "Valid user",
+            user: map[string]interface{}{
+                "name":  "John Doe",
+                "email": "john@example.com",
+                "age":   25,
+            },
+            expectedCode: http.StatusOK,
+        },
+        {
+            name: "Missing name",
+            user: map[string]interface{}{
+                "email": "john@example.com",
+                "age":   25,
+            },
+            expectedCode: http.StatusBadRequest,
+            expectedError: "name is required",
+        },
+        {
+            name: "Invalid email",
+            user: map[string]interface{}{
+                "name":  "John Doe",
+                "email": "invalid-email",
+                "age":   25,
+            },
+            expectedCode: http.StatusBadRequest,
+            expectedError: "invalid email format",
+        },
+        {
+            name: "Age too young",
+            user: map[string]interface{}{
+                "name":  "John Doe",
+                "email": "john@example.com",
+                "age":   17,
+            },
+            expectedCode: http.StatusBadRequest,
+            expectedError: "must be 18 or older",
+        },
+    }
+
+    for _, tc := range testCases {
+        t.Run(tc.name, func(t *testing.T) {
+            response := router.NewRequest("POST", "/users").
+                WithAuth("test-token").
+                WithJSON(tc.user).
+                Execute(r)
+
+            assertion := router.AssertResponse(t, response).
+                Status(tc.expectedCode)
+
+            if tc.expectedError != "" {
+                assertion.BodyContains(tc.expectedError)
+            }
+        })
+    }
+}
+```
+
+## WebSocket and SSE Testing
+
+### WebSocket Testing
+
+```go
+func TestWebSocketHandler(t *testing.T) {
+    r := router.NewRouter()
+
+    // Register WebSocket handler
+    r.WebSocket("/ws/test", func(conn *router.WSConnection, message struct {
+        Text string `json:"text"`
+    }) (*struct {
+        Echo string `json:"echo"`
+    }, error) {
+        return &struct {
+            Echo string `json:"echo"`
+        }{
+            Echo: "Echo: " + message.Text,
+        }, nil
+    })
+
+    // Test handler registration
+    router.AssertEqual(t, 1, len(r.wsHandlers))
+
+    handler, exists := r.wsHandlers["/ws/test"]
+    router.AssertTrue(t, exists)
+    router.AssertEqual(t, "/ws/test", handler.Path)
+}
+```
+
+### SSE Testing
+
+```go
+func TestSSEHandler(t *testing.T) {
+    r := router.NewRouter()
+
+    // Register SSE handler
+    r.SSE("/sse/events", func(conn *router.SSEConnection, params struct{}) error {
+        return conn.SendMessage(router.SSEMessage{
+            Event: "test",
+            Data:  "test data",
+        })
+    })
+
+    // Test handler registration
+    router.AssertEqual(t, 1, len(r.sseHandlers))
+
+    handler, exists := r.sseHandlers["/sse/events"]
+    router.AssertTrue(t, exists)
+    router.AssertEqual(t, "/sse/events", handler.Path)
+}
+```
+
+## Best Practices
+
+import { Callout } from 'nextra/components'
+
+<Callout type="info">
+    **Test Organization**: Organize your tests by feature or endpoint, use table-driven tests for multiple scenarios, and separate unit tests from integration tests.
+</Callout>
+
+### 1. Test Structure
+
+```go
+func TestUserAPI(t *testing.T) {
+    // Setup
+    router := setupTestRouter(t)
+
+    t.Run("Authentication", func(t *testing.T) {
+        // Auth-related tests
+    })
+
+    t.Run("CRUD Operations", func(t *testing.T) {
+        // CRUD tests
+    })
+
+    t.Run("Validation", func(t *testing.T) {
+        // Validation tests
+    })
+
+    t.Run("Error Handling", func(t *testing.T) {
+        // Error tests
+    })
+}
+```
+
+### 2. Test Data Management
+
+```go
+func setupTestData(t *testing.T) *TestData {
+    return &TestData{
+        Users: []User{
+            {ID: 1, Name: "Alice", Email: "alice@test.com"},
+            {ID: 2, Name: "Bob", Email: "bob@test.com"},
+        },
+        ValidToken: "test-token-123",
+    }
+}
+
+func (td *TestData) Cleanup() {
+    // Clean up test data
+}
+```
+
+### 3. Mock Services
+
+```go
+type MockUserService struct {
+    users map[int]User
+}
+
+func (m *MockUserService) GetUser(id int) (*User, error) {
+    user, exists := m.users[id]
+    if !exists {
+        return nil, router.NotFound("User")
+    }
+    return &user, nil
+}
+
+func setupMockServices() *MockUserService {
+    return &MockUserService{
+        users: map[int]User{
+            1: {ID: 1, Name: "Test User"},
+        },
+    }
+}
+```
+
+### 4. Environment-Specific Tests
+
+```go
+func TestIntegration(t *testing.T) {
+    if testing.Short() {
+        t.Skip("Skipping integration test in short mode")
+    }
+
+    if os.Getenv("INTEGRATION_TESTS") != "true" {
+        t.Skip("Skipping integration test (set INTEGRATION_TESTS=true)")
+    }
+
+    // Integration test code...
+}
+```
+
+ForgeRouter's testing utilities make it easy to write comprehensive tests that give you confidence in your API's reliability and performance.

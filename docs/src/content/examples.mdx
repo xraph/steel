@@ -1,0 +1,1068 @@
+# Examples
+
+Real-world examples showing how to build production-ready APIs with ForgeRouter.
+
+## E-commerce API
+
+A complete e-commerce API with products, orders, and user management:
+
+```go
+package main
+
+import (
+    "fmt"
+    "log"
+    "net/http"
+    "time"
+    router "github.com/xraph/forgerouter"
+)
+
+// Domain Models
+type User struct {
+    ID       int       `json:"id" description:"User ID"`
+    Email    string    `json:"email" description:"User email"`
+    Name     string    `json:"name" description:"User full name"`
+    Role     string    `json:"role" description:"User role (customer, admin)"`
+    Created  time.Time `json:"created" description:"Account creation date"`
+}
+
+type Product struct {
+    ID          int     `json:"id" description:"Product ID"`
+    Name        string  `json:"name" description:"Product name"`
+    Description string  `json:"description" description:"Product description"`
+    Price       float64 `json:"price" description:"Product price in USD"`
+    Stock       int     `json:"stock" description:"Available stock quantity"`
+    Category    string  `json:"category" description:"Product category"`
+    ImageURL    string  `json:"image_url" description:"Product image URL"`
+}
+
+type Order struct {
+    ID         int         `json:"id" description:"Order ID"`
+    UserID     int         `json:"user_id" description:"Customer user ID"`
+    Items      []OrderItem `json:"items" description:"Order items"`
+    Total      float64     `json:"total" description:"Order total amount"`
+    Status     string      `json:"status" description:"Order status"`
+    Created    time.Time   `json:"created" description:"Order creation date"`
+}
+
+type OrderItem struct {
+    ProductID int     `json:"product_id" description:"Product ID"`
+    Quantity  int     `json:"quantity" description:"Item quantity"`
+    Price     float64 `json:"price" description:"Item price at time of order"`
+}
+
+// Request/Response Types
+type GetProductsRequest struct {
+    Category string `query:"category" description:"Filter by category"`
+    MinPrice float64 `query:"min_price" description:"Minimum price filter"`
+    MaxPrice float64 `query:"max_price" description:"Maximum price filter"`
+    Page     int    `query:"page" description:"Page number (default: 1)"`
+    Limit    int    `query:"limit" description:"Items per page (default: 20, max: 100)"`
+    Search   string `query:"search" description:"Search in product names"`
+}
+
+type ProductListResponse struct {
+    Products []Product `json:"products" description:"List of products"`
+    Total    int       `json:"total" description:"Total number of products"`
+    Page     int       `json:"page" description:"Current page"`
+    HasMore  bool      `json:"has_more" description:"Whether there are more pages"`
+}
+
+type CreateOrderRequest struct {
+    Items []struct {
+        ProductID int `json:"product_id" description:"Product ID"`
+        Quantity  int `json:"quantity" description:"Desired quantity"`
+    } `json:"items" body:"body" description:"Order items"`
+    ShippingAddress struct {
+        Street  string `json:"street" description:"Street address"`
+        City    string `json:"city" description:"City"`
+        State   string `json:"state" description:"State/Province"`
+        ZipCode string `json:"zip_code" description:"Postal code"`
+        Country string `json:"country" description:"Country"`
+    } `json:"shipping_address" body:"body" description:"Shipping address"`
+}
+
+func main() {
+    r := router.NewRouter()
+
+    // Middleware
+    r.Use(router.Logger)
+    r.Use(router.Recoverer)
+    r.Use(corsMiddleware())
+
+    // API v1
+    r.Route("/api/v1", func(api router.Router) {
+        // Public endpoints
+        api.OpinionatedGET("/products", getProducts,
+            router.WithSummary("List Products"),
+            router.WithDescription("Get paginated list of products with filtering"),
+            router.WithTags("products"))
+
+        api.OpinionatedGET("/products/:id", getProduct,
+            router.WithSummary("Get Product"),
+            router.WithDescription("Get detailed product information"),
+            router.WithTags("products"))
+
+        // Authentication required
+        api.Route("/auth", func(auth router.Router) {
+            auth.Use(authMiddleware())
+
+            // User management
+            auth.OpinionatedGET("/profile", getUserProfile,
+                router.WithSummary("Get User Profile"),
+                router.WithTags("users"))
+
+            auth.OpinionatedPUT("/profile", updateUserProfile,
+                router.WithSummary("Update User Profile"),
+                router.WithTags("users"))
+
+            // Order management
+            auth.OpinionatedPOST("/orders", createOrder,
+                router.WithSummary("Create Order"),
+                router.WithDescription("Create a new order with items and shipping"),
+                router.WithTags("orders"))
+
+            auth.OpinionatedGET("/orders", getUserOrders,
+                router.WithSummary("Get User Orders"),
+                router.WithTags("orders"))
+
+            auth.OpinionatedGET("/orders/:id", getOrder,
+                router.WithSummary("Get Order"),
+                router.WithTags("orders"))
+        })
+
+        // Admin endpoints
+        api.Route("/admin", func(admin router.Router) {
+            admin.Use(authMiddleware())
+            admin.Use(adminMiddleware())
+
+            admin.OpinionatedPOST("/products", createProduct,
+                router.WithSummary("Create Product"),
+                router.WithTags("products", "admin"))
+
+            admin.OpinionatedPUT("/products/:id", updateProduct,
+                router.WithSummary("Update Product"),
+                router.WithTags("products", "admin"))
+
+            admin.OpinionatedGET("/orders", getAllOrders,
+                router.WithSummary("Get All Orders"),
+                router.WithTags("orders", "admin"))
+        })
+    })
+
+    // Health check
+    r.GET("/health", func(w http.ResponseWriter, req *http.Request) {
+        w.Header().Set("Content-Type", "application/json")
+        w.WriteHeader(http.StatusOK)
+        w.Write([]byte(`{"status":"healthy","timestamp":"` + time.Now().Format(time.RFC3339) + `"}`))
+    })
+
+    // Enable documentation
+    r.EnableOpenAPI()
+
+    log.Println("🛍️  E-commerce API starting on :8080")
+    log.Println("📚 API docs at http://localhost:8080/openapi/docs")
+    log.Fatal(http.ListenAndServe(":8080", r))
+}
+
+// Handlers
+func getProducts(ctx *router.FastContext, req GetProductsRequest) (*ProductListResponse, error) {
+    // Set defaults
+    if req.Page <= 0 {
+        req.Page = 1
+    }
+    if req.Limit <= 0 {
+        req.Limit = 20
+    }
+    if req.Limit > 100 {
+        req.Limit = 100
+    }
+
+    // Mock data - replace with actual database queries
+    products := []Product{
+        {ID: 1, Name: "MacBook Pro", Price: 1999.99, Stock: 10, Category: "electronics"},
+        {ID: 2, Name: "iPhone 15", Price: 999.99, Stock: 25, Category: "electronics"},
+        {ID: 3, Name: "Nike Air Max", Price: 129.99, Stock: 50, Category: "shoes"},
+    }
+
+    // Apply filters (simplified)
+    filtered := filterProducts(products, req)
+
+    return &ProductListResponse{
+        Products: filtered,
+        Total:    len(filtered),
+        Page:     req.Page,
+        HasMore:  false, // Calculate based on pagination
+    }, nil
+}
+
+func createOrder(ctx *router.FastContext, req CreateOrderRequest) (*Order, error) {
+    userID := getUserIDFromContext(ctx)
+
+    // Validate items
+    if len(req.Items) == 0 {
+        return nil, router.BadRequest("Order must contain at least one item")
+    }
+
+    var total float64
+    var orderItems []OrderItem
+
+    for _, item := range req.Items {
+        // Check product exists and has sufficient stock
+        product, err := getProductByID(item.ProductID)
+        if err != nil {
+            return nil, router.BadRequest(fmt.Sprintf("Product %d not found", item.ProductID))
+        }
+
+        if product.Stock < item.Quantity {
+            return nil, router.Conflict(fmt.Sprintf("Insufficient stock for product %d", item.ProductID))
+        }
+
+        orderItem := OrderItem{
+            ProductID: item.ProductID,
+            Quantity:  item.Quantity,
+            Price:     product.Price,
+        }
+
+        orderItems = append(orderItems, orderItem)
+        total += product.Price * float64(item.Quantity)
+    }
+
+    // Create order
+    order := &Order{
+        ID:      generateOrderID(),
+        UserID:  userID,
+        Items:   orderItems,
+        Total:   total,
+        Status:  "pending",
+        Created: time.Now(),
+    }
+
+    // Save to database and update inventory
+    saveOrder(order)
+    updateInventory(req.Items)
+
+    return order, nil
+}
+
+// Middleware
+func corsMiddleware() router.MiddlewareFunc {
+    return func(next http.Handler) http.Handler {
+        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+            w.Header().Set("Access-Control-Allow-Origin", "*")
+            w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+            w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+            if r.Method == "OPTIONS" {
+                w.WriteHeader(http.StatusOK)
+                return
+            }
+
+            next.ServeHTTP(w, r)
+        })
+    }
+}
+
+func authMiddleware() router.MiddlewareFunc {
+    return func(next http.Handler) http.Handler {
+        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+            token := r.Header.Get("Authorization")
+            if token == "" {
+                http.Error(w, "Authorization header required", http.StatusUnauthorized)
+                return
+            }
+
+            // Validate token (simplified)
+            userID, err := validateToken(token)
+            if err != nil {
+                http.Error(w, "Invalid token", http.StatusUnauthorized)
+                return
+            }
+
+            // Add user to context
+            ctx := context.WithValue(r.Context(), "user_id", userID)
+            next.ServeHTTP(w, r.WithContext(ctx))
+        })
+    }
+}
+```
+
+## Real-time Chat Application
+
+WebSocket-based chat with rooms and user presence:
+
+```go
+package main
+
+import (
+    "fmt"
+    "log"
+    "net/http"
+    "sync"
+    "time"
+    router "github.com/xraph/forgerouter"
+)
+
+// Chat Models
+type ChatRoom struct {
+    ID          string            `json:"id"`
+    Name        string            `json:"name"`
+    Users       map[string]*User  `json:"users"`
+    Messages    []ChatMessage     `json:"messages"`
+    mu          sync.RWMutex
+}
+
+type ChatMessage struct {
+    ID        string    `json:"id" description:"Message ID"`
+    UserID    string    `json:"user_id" description:"User who sent the message"`
+    Username  string    `json:"username" description:"Username"`
+    RoomID    string    `json:"room_id" description:"Room ID"`
+    Content   string    `json:"content" description:"Message content"`
+    Type      string    `json:"type" description:"Message type (text, system, image)"`
+    Timestamp time.Time `json:"timestamp" description:"Message timestamp"`
+}
+
+type ChatUser struct {
+    ID       string    `json:"id" description:"User ID"`
+    Username string    `json:"username" description:"Username"`
+    Avatar   string    `json:"avatar" description:"Avatar URL"`
+    Status   string    `json:"status" description:"User status (online, away, offline)"`
+    JoinedAt time.Time `json:"joined_at" description:"When user joined the room"`
+}
+
+// WebSocket Message Types
+type IncomingMessage struct {
+    Type    string                 `json:"type" description:"Message type"`
+    RoomID  string                 `json:"room_id" description:"Target room ID"`
+    Content string                 `json:"content" description:"Message content"`
+    Data    map[string]interface{} `json:"data,omitempty" description:"Additional data"`
+}
+
+type OutgoingMessage struct {
+    Type      string      `json:"type" description:"Message type"`
+    Message   ChatMessage `json:"message,omitempty" description:"Chat message"`
+    User      ChatUser    `json:"user,omitempty" description:"User information"`
+    Users     []ChatUser  `json:"users,omitempty" description:"List of users"`
+    RoomID    string      `json:"room_id" description:"Room ID"`
+    Timestamp time.Time   `json:"timestamp" description:"Message timestamp"`
+    Error     string      `json:"error,omitempty" description:"Error message"`
+}
+
+// Room Manager
+type RoomManager struct {
+    rooms map[string]*ChatRoom
+    mu    sync.RWMutex
+}
+
+func NewRoomManager() *RoomManager {
+    return &RoomManager{
+        rooms: make(map[string]*ChatRoom),
+    }
+}
+
+func (rm *RoomManager) GetRoom(roomID string) *ChatRoom {
+    rm.mu.RLock()
+    defer rm.mu.RUnlock()
+    return rm.rooms[roomID]
+}
+
+func (rm *RoomManager) CreateRoom(roomID, name string) *ChatRoom {
+    rm.mu.Lock()
+    defer rm.mu.Unlock()
+
+    room := &ChatRoom{
+        ID:       roomID,
+        Name:     name,
+        Users:    make(map[string]*User),
+        Messages: make([]ChatMessage, 0),
+    }
+
+    rm.rooms[roomID] = room
+    return room
+}
+
+var roomManager = NewRoomManager()
+
+func main() {
+    r := router.NewRouter()
+
+    // Middleware
+    r.Use(router.Logger)
+    r.Use(router.Recoverer)
+    r.Use(corsMiddleware())
+
+    // WebSocket chat endpoint
+    r.WebSocket("/ws/chat/:room_id", handleChatConnection,
+        router.WithAsyncSummary("Chat WebSocket"),
+        router.WithAsyncDescription("Real-time chat communication in rooms"),
+        router.WithAsyncTags("chat", "websocket"))
+
+    // SSE for presence updates
+    r.SSE("/sse/presence/:room_id", handlePresenceStream,
+        router.WithAsyncSummary("Presence Updates"),
+        router.WithAsyncDescription("Real-time user presence updates"),
+        router.WithAsyncTags("presence", "sse"))
+
+    // REST API for chat history
+    r.Route("/api/v1", func(api router.Router) {
+        api.OpinionatedGET("/rooms/:room_id/messages", getChatHistory,
+            router.WithSummary("Get Chat History"),
+            router.WithTags("chat"))
+
+        api.OpinionatedGET("/rooms/:room_id/users", getRoomUsers,
+            router.WithSummary("Get Room Users"),
+            router.WithTags("chat"))
+
+        api.OpinionatedPOST("/rooms", createRoom,
+            router.WithSummary("Create Room"),
+            router.WithTags("chat"))
+    })
+
+    // Serve static files for chat UI
+    r.GET("/", func(w http.ResponseWriter, req *http.Request) {
+        http.ServeFile(w, req, "static/chat.html")
+    })
+
+    // Enable documentation
+    r.EnableOpenAPI()
+    r.EnableAsyncAPI()
+
+    log.Println("💬 Chat server starting on :8080")
+    log.Println("📚 API docs at http://localhost:8080/openapi/docs")
+    log.Println("🔌 AsyncAPI docs at http://localhost:8080/asyncapi/docs")
+
+    log.Fatal(http.ListenAndServe(":8080", r))
+}
+
+func handleChatConnection(conn *router.WSConnection, message IncomingMessage) (*OutgoingMessage, error) {
+    roomID := conn.Param("room_id")
+    userID := conn.Request().URL.Query().Get("user_id")
+    username := conn.Request().URL.Query().Get("username")
+
+    if userID == "" || username == "" {
+        return nil, fmt.Errorf("user_id and username are required")
+    }
+
+    // Store user info in connection metadata
+    conn.SetMetadata("user_id", userID)
+    conn.SetMetadata("username", username)
+    conn.SetMetadata("room_id", roomID)
+
+    // Get or create room
+    room := roomManager.GetRoom(roomID)
+    if room == nil {
+        room = roomManager.CreateRoom(roomID, fmt.Sprintf("Room %s", roomID))
+    }
+
+    switch message.Type {
+    case "join":
+        return handleUserJoin(conn, room, userID, username)
+    case "message":
+        return handleChatMessage(conn, room, message)
+    case "leave":
+        return handleUserLeave(conn, room, userID)
+    case "typing":
+        return handleTypingIndicator(conn, room, message)
+    default:
+        return &OutgoingMessage{
+            Type:      "error",
+            Error:     "Unknown message type",
+            Timestamp: time.Now(),
+        }, nil
+    }
+}
+
+func handleChatMessage(conn *router.WSConnection, room *ChatRoom, msg IncomingMessage) (*OutgoingMessage, error) {
+    userID := conn.GetMetadata("user_id").(string)
+    username := conn.GetMetadata("username").(string)
+
+    // Create chat message
+    chatMsg := ChatMessage{
+        ID:        generateMessageID(),
+        UserID:    userID,
+        Username:  username,
+        RoomID:    room.ID,
+        Content:   msg.Content,
+        Type:      "text",
+        Timestamp: time.Now(),
+    }
+
+    // Store message
+    room.mu.Lock()
+    room.Messages = append(room.Messages, chatMsg)
+    room.mu.Unlock()
+
+    // Broadcast to all users in room
+    broadcastToRoom(room.ID, OutgoingMessage{
+        Type:      "message",
+        Message:   chatMsg,
+        RoomID:    room.ID,
+        Timestamp: time.Now(),
+    }, conn.ClientID)
+
+    return &OutgoingMessage{
+        Type:      "message_sent",
+        Message:   chatMsg,
+        Timestamp: time.Now(),
+    }, nil
+}
+
+func broadcastToRoom(roomID string, message OutgoingMessage, excludeClientID string) {
+    cm := router.ConnectionManager()
+
+    for clientID, conn := range cm.WSConnections() {
+        if clientID == excludeClientID {
+            continue
+        }
+
+        if connRoomID, ok := conn.GetMetadata("room_id"); ok && connRoomID == roomID {
+            conn.SendMessage(router.WSMessage{
+                Type:    "room_broadcast",
+                Payload: message,
+            })
+        }
+    }
+}
+```
+
+## Task Management API with Real-time Updates
+
+Project management API with WebSocket notifications:
+
+```go
+package main
+
+import (
+    "time"
+    router "github.com/xraph/forgerouter"
+)
+
+// Task Models
+type Task struct {
+    ID          int       `json:"id" description:"Task ID"`
+    Title       string    `json:"title" description:"Task title"`
+    Description string    `json:"description" description:"Task description"`
+    Status      string    `json:"status" description:"Task status (todo, in_progress, done)"`
+    Priority    string    `json:"priority" description:"Task priority (low, medium, high)"`
+    AssigneeID  *int      `json:"assignee_id" description:"Assigned user ID"`
+    ProjectID   int       `json:"project_id" description:"Project ID"`
+    DueDate     *time.Time `json:"due_date" description:"Task due date"`
+    Created     time.Time `json:"created" description:"Creation timestamp"`
+    Updated     time.Time `json:"updated" description:"Last update timestamp"`
+}
+
+type Project struct {
+    ID          int       `json:"id" description:"Project ID"`
+    Name        string    `json:"name" description:"Project name"`
+    Description string    `json:"description" description:"Project description"`
+    OwnerID     int       `json:"owner_id" description:"Project owner user ID"`
+    Status      string    `json:"status" description:"Project status"`
+    Created     time.Time `json:"created" description:"Creation timestamp"`
+}
+
+// Request Types
+type CreateTaskRequest struct {
+    Title       string     `json:"title" body:"body" description:"Task title"`
+    Description string     `json:"description" body:"body" description:"Task description"`
+    Priority    string     `json:"priority" body:"body" description:"Task priority"`
+    AssigneeID  *int       `json:"assignee_id" body:"body" description:"Assigned user ID"`
+    ProjectID   int        `path:"project_id" description:"Project ID"`
+    DueDate     *time.Time `json:"due_date" body:"body" description:"Task due date"`
+}
+
+type UpdateTaskRequest struct {
+    ID          int        `path:"id" description:"Task ID"`
+    Title       *string    `json:"title" body:"body" description:"Task title"`
+    Description *string    `json:"description" body:"body" description:"Task description"`
+    Status      *string    `json:"status" body:"body" description:"Task status"`
+    Priority    *string    `json:"priority" body:"body" description:"Task priority"`
+    AssigneeID  *int       `json:"assignee_id" body:"body" description:"Assigned user ID"`
+    DueDate     *time.Time `json:"due_date" body:"body" description:"Task due date"`
+}
+
+type GetTasksRequest struct {
+    ProjectID  int    `path:"project_id" description:"Project ID"`
+    Status     string `query:"status" description:"Filter by status"`
+    AssigneeID int    `query:"assignee_id" description:"Filter by assignee"`
+    Page       int    `query:"page" description:"Page number"`
+    Limit      int    `query:"limit" description:"Items per page"`
+}
+
+// Real-time Update Types
+type TaskUpdateNotification struct {
+    Type      string    `json:"type" description:"Update type (created, updated, deleted)"`
+    Task      Task      `json:"task" description:"Updated task"`
+    ProjectID int       `json:"project_id" description:"Project ID"`
+    UserID    int       `json:"user_id" description:"User who made the change"`
+    Timestamp time.Time `json:"timestamp" description:"Update timestamp"`
+}
+
+func main() {
+    r := router.NewRouter()
+
+    // Middleware
+    r.Use(router.Logger)
+    r.Use(router.Recoverer)
+    r.Use(authMiddleware())
+
+    // Task API
+    r.Route("/api/v1/projects/:project_id", func(project router.Router) {
+        // Task CRUD
+        project.OpinionatedGET("/tasks", getTasks,
+            router.WithSummary("Get Project Tasks"),
+            router.WithDescription("Get paginated list of tasks for a project"),
+            router.WithTags("tasks"))
+
+        project.OpinionatedPOST("/tasks", createTask,
+            router.WithSummary("Create Task"),
+            router.WithDescription("Create a new task in the project"),
+            router.WithTags("tasks"))
+
+        project.OpinionatedGET("/tasks/:id", getTask,
+            router.WithSummary("Get Task"),
+            router.WithTags("tasks"))
+
+        project.OpinionatedPUT("/tasks/:id", updateTask,
+            router.WithSummary("Update Task"),
+            router.WithTags("tasks"))
+
+        project.OpinionatedDELETE("/tasks/:id", deleteTask,
+            router.WithSummary("Delete Task"),
+            router.WithTags("tasks"))
+    })
+
+    // Real-time updates
+    r.SSE("/sse/projects/:project_id/updates", handleProjectUpdates,
+        router.WithAsyncSummary("Project Updates"),
+        router.WithAsyncDescription("Real-time task and project updates"),
+        router.WithAsyncTags("tasks", "realtime", "sse"))
+
+    // Team collaboration WebSocket
+    r.WebSocket("/ws/projects/:project_id/collaborate", handleCollaboration,
+        router.WithAsyncSummary("Team Collaboration"),
+        router.WithAsyncDescription("Real-time team collaboration features"),
+        router.WithAsyncTags("collaboration", "websocket"))
+
+    r.EnableOpenAPI()
+    r.EnableAsyncAPI()
+
+    log.Fatal(http.ListenAndServe(":8080", r))
+}
+
+func createTask(ctx *router.FastContext, req CreateTaskRequest) (*Task, error) {
+    userID := getUserIDFromContext(ctx)
+
+    // Validate user has access to project
+    if !hasProjectAccess(userID, req.ProjectID) {
+        return nil, router.Forbidden("Access denied to project")
+    }
+
+    // Validate request
+    if req.Title == "" {
+        return nil, router.BadRequest("Title is required")
+    }
+
+    if req.Priority != "" && !isValidPriority(req.Priority) {
+        return nil, router.BadRequest("Invalid priority")
+    }
+
+    // Create task
+    task := &Task{
+        ID:          generateTaskID(),
+        Title:       req.Title,
+        Description: req.Description,
+        Status:      "todo",
+        Priority:    req.Priority,
+        AssigneeID:  req.AssigneeID,
+        ProjectID:   req.ProjectID,
+        DueDate:     req.DueDate,
+        Created:     time.Now(),
+        Updated:     time.Now(),
+    }
+
+    // Save to database
+    if err := saveTask(task); err != nil {
+        return nil, router.InternalServerError("Failed to create task")
+    }
+
+    // Send real-time notification
+    notifyProjectUpdate(TaskUpdateNotification{
+        Type:      "created",
+        Task:      *task,
+        ProjectID: req.ProjectID,
+        UserID:    userID,
+        Timestamp: time.Now(),
+    })
+
+    return task, nil
+}
+
+func updateTask(ctx *router.FastContext, req UpdateTaskRequest) (*Task, error) {
+    userID := getUserIDFromContext(ctx)
+
+    // Get existing task
+    task, err := getTaskByID(req.ID)
+    if err != nil {
+        return nil, router.NotFound("Task")
+    }
+
+    // Check permissions
+    if !hasTaskEditAccess(userID, task) {
+        return nil, router.Forbidden("Cannot edit this task")
+    }
+
+    // Update fields
+    if req.Title != nil {
+        task.Title = *req.Title
+    }
+    if req.Description != nil {
+        task.Description = *req.Description
+    }
+    if req.Status != nil {
+        if !isValidStatus(*req.Status) {
+            return nil, router.BadRequest("Invalid status")
+        }
+        task.Status = *req.Status
+    }
+    if req.Priority != nil {
+        if !isValidPriority(*req.Priority) {
+            return nil, router.BadRequest("Invalid priority")
+        }
+        task.Priority = *req.Priority
+    }
+    if req.AssigneeID != nil {
+        task.AssigneeID = req.AssigneeID
+    }
+    if req.DueDate != nil {
+        task.DueDate = req.DueDate
+    }
+
+    task.Updated = time.Now()
+
+    // Save changes
+    if err := saveTask(task); err != nil {
+        return nil, router.InternalServerError("Failed to update task")
+    }
+
+    // Send real-time notification
+    notifyProjectUpdate(TaskUpdateNotification{
+        Type:      "updated",
+        Task:      *task,
+        ProjectID: task.ProjectID,
+        UserID:    userID,
+        Timestamp: time.Now(),
+    })
+
+    return task, nil
+}
+
+func handleProjectUpdates(conn *router.SSEConnection, params struct {
+    ProjectID int `path:"project_id" description:"Project ID"`
+}) error {
+    userID := getUserIDFromRequest(conn.Request())
+
+    // Verify access to project
+    if !hasProjectAccess(userID, params.ProjectID) {
+        return fmt.Errorf("access denied to project")
+    }
+
+    // Store subscription
+    conn.SetMetadata("user_id", userID)
+    conn.SetMetadata("project_id", params.ProjectID)
+
+    // Send welcome message
+    conn.SendMessage(router.SSEMessage{
+        Event: "connected",
+        Data: map[string]interface{}{
+            "message":    "Connected to project updates",
+            "project_id": params.ProjectID,
+            "user_id":    userID,
+        },
+    })
+
+    // Keep connection alive and listen for updates
+    updateChan := subscribeToProjectUpdates(params.ProjectID, userID)
+
+    for {
+        select {
+        case update := <-updateChan:
+            err := conn.SendMessage(router.SSEMessage{
+                Event: "task_update",
+                Data:  update,
+            })
+            if err != nil {
+                return err
+            }
+        case <-time.After(30 * time.Second):
+            // Send heartbeat
+            conn.SendMessage(router.SSEMessage{
+                Event: "heartbeat",
+                Data:  map[string]interface{}{"time": time.Now()},
+            })
+        }
+    }
+}
+
+func notifyProjectUpdate(notification TaskUpdateNotification) {
+    cm := router.ConnectionManager()
+
+    // Notify SSE connections
+    for _, conn := range cm.SSEConnections() {
+        if projectID, ok := conn.GetMetadata("project_id"); ok {
+            if projectID.(int) == notification.ProjectID {
+                conn.SendMessage(router.SSEMessage{
+                    Event: "task_update",
+                    Data:  notification,
+                })
+            }
+        }
+    }
+
+    // Notify WebSocket connections
+    for _, conn := range cm.WSConnections() {
+        if projectID, ok := conn.GetMetadata("project_id"); ok {
+            if projectID.(int) == notification.ProjectID {
+                conn.SendMessage(router.WSMessage{
+                    Type:    "task_update",
+                    Payload: notification,
+                })
+            }
+        }
+    }
+}
+```
+
+## File Upload and Processing API
+
+API with file upload, processing, and progress tracking:
+
+```go
+package main
+
+import (
+    "fmt"
+    "io"
+    "mime/multipart"
+    "net/http"
+    "os"
+    "path/filepath"
+    "time"
+    router "github.com/xraph/forgerouter"
+)
+
+type FileUpload struct {
+    ID          string    `json:"id" description:"Upload ID"`
+    Filename    string    `json:"filename" description:"Original filename"`
+    Size        int64     `json:"size" description:"File size in bytes"`
+    ContentType string    `json:"content_type" description:"MIME type"`
+    Status      string    `json:"status" description:"Upload status"`
+    Progress    float64   `json:"progress" description:"Processing progress (0-100)"`
+    URL         string    `json:"url,omitempty" description:"Download URL"`
+    Error       string    `json:"error,omitempty" description:"Error message"`
+    Created     time.Time `json:"created" description:"Upload timestamp"`
+    Processed   *time.Time `json:"processed,omitempty" description:"Processing completion time"`
+}
+
+type UploadProgressUpdate struct {
+    UploadID string  `json:"upload_id" description:"Upload ID"`
+    Progress float64 `json:"progress" description:"Progress percentage"`
+    Status   string  `json:"status" description:"Current status"`
+    Message  string  `json:"message,omitempty" description:"Status message"`
+}
+
+func main() {
+    r := router.NewRouter()
+
+    r.Use(router.Logger)
+    r.Use(router.Recoverer)
+
+    // File upload endpoints
+    r.POST("/api/v1/upload", handleFileUpload)
+
+    r.OpinionatedGET("/api/v1/uploads/:id", getUploadStatus,
+        router.WithSummary("Get Upload Status"),
+        router.WithTags("uploads"))
+
+    r.OpinionatedGET("/api/v1/uploads", listUploads,
+        router.WithSummary("List Uploads"),
+        router.WithTags("uploads"))
+
+    // Real-time upload progress
+    r.SSE("/sse/uploads/:id/progress", handleUploadProgress,
+        router.WithAsyncSummary("Upload Progress"),
+        router.WithAsyncDescription("Real-time upload processing progress"),
+        router.WithAsyncTags("uploads", "progress", "sse"))
+
+    // File download
+    r.GET("/api/v1/uploads/:id/download", handleFileDownload)
+
+    r.EnableOpenAPI()
+    r.EnableAsyncAPI()
+
+    log.Fatal(http.ListenAndServe(":8080", r))
+}
+
+func handleFileUpload(w http.ResponseWriter, r *http.Request) {
+    // Parse multipart form (32MB max)
+    err := r.ParseMultipartForm(32 << 20)
+    if err != nil {
+        http.Error(w, "File too large", http.StatusBadRequest)
+        return
+    }
+
+    file, header, err := r.FormFile("file")
+    if err != nil {
+        http.Error(w, "No file provided", http.StatusBadRequest)
+        return
+    }
+    defer file.Close()
+
+    // Validate file type
+    if !isAllowedFileType(header.Header.Get("Content-Type")) {
+        http.Error(w, "File type not allowed", http.StatusBadRequest)
+        return
+    }
+
+    // Create upload record
+    upload := &FileUpload{
+        ID:          generateUploadID(),
+        Filename:    header.Filename,
+        Size:        header.Size,
+        ContentType: header.Header.Get("Content-Type"),
+        Status:      "uploading",
+        Progress:    0,
+        Created:     time.Now(),
+    }
+
+    // Save upload metadata
+    saveUpload(upload)
+
+    // Start async processing
+    go processFileUpload(upload, file)
+
+    // Return upload info
+    w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(http.StatusAccepted)
+    json.NewEncoder(w).Encode(upload)
+}
+
+func processFileUpload(upload *FileUpload, file multipart.File) {
+    // Reset file position
+    file.Seek(0, 0)
+
+    // Create upload directory
+    uploadDir := filepath.Join("uploads", upload.ID)
+    os.MkdirAll(uploadDir, 0755)
+
+    // Save file
+    destPath := filepath.Join(uploadDir, upload.Filename)
+    destFile, err := os.Create(destPath)
+    if err != nil {
+        updateUploadStatus(upload.ID, "failed", 0, err.Error())
+        return
+    }
+    defer destFile.Close()
+
+    // Copy with progress tracking
+    updateUploadStatus(upload.ID, "processing", 10, "Saving file...")
+
+    _, err = io.Copy(destFile, file)
+    if err != nil {
+        updateUploadStatus(upload.ID, "failed", 0, err.Error())
+        return
+    }
+
+    updateUploadStatus(upload.ID, "processing", 50, "Processing file...")
+
+    // Process based on file type
+    switch upload.ContentType {
+    case "image/jpeg", "image/png", "image/gif":
+        processImage(upload, destPath)
+    case "application/pdf":
+        processPDF(upload, destPath)
+    case "text/csv":
+        processCSV(upload, destPath)
+    default:
+        // Just mark as completed for other types
+        updateUploadStatus(upload.ID, "completed", 100, "Upload completed")
+    }
+}
+
+func updateUploadStatus(uploadID, status string, progress float64, message string) {
+    // Update database
+    upload := getUploadByID(uploadID)
+    upload.Status = status
+    upload.Progress = progress
+    if status == "completed" {
+        now := time.Now()
+        upload.Processed = &now
+        upload.URL = fmt.Sprintf("/api/v1/uploads/%s/download", uploadID)
+    } else if status == "failed" {
+        upload.Error = message
+    }
+    saveUpload(upload)
+
+    // Send real-time update
+    notifyUploadProgress(UploadProgressUpdate{
+        UploadID: uploadID,
+        Progress: progress,
+        Status:   status,
+        Message:  message,
+    })
+}
+
+func handleUploadProgress(conn *router.SSEConnection, params struct {
+    ID string `path:"id" description:"Upload ID"`
+}) error {
+    uploadID := params.ID
+
+    // Verify upload exists
+    upload := getUploadByID(uploadID)
+    if upload == nil {
+        return fmt.Errorf("upload not found")
+    }
+
+    // Store upload ID in connection
+    conn.SetMetadata("upload_id", uploadID)
+
+    // Send current status
+    conn.SendMessage(router.SSEMessage{
+        Event: "status",
+        Data: UploadProgressUpdate{
+            UploadID: uploadID,
+            Progress: upload.Progress,
+            Status:   upload.Status,
+        },
+    })
+
+    // Keep connection alive
+    for !conn.IsClosed() {
+        time.Sleep(1 * time.Second)
+
+        // Check if upload is completed
+        currentUpload := getUploadByID(uploadID)
+        if currentUpload.Status == "completed" || currentUpload.Status == "failed" {
+            break
+        }
+    }
+
+    return nil
+}
+
+func notifyUploadProgress(update UploadProgressUpdate) {
+    cm := router.ConnectionManager()
+
+    for _, conn := range cm.SSEConnections() {
+        if uploadID, ok := conn.GetMetadata("upload_id"); ok {
+            if uploadID.(string) == update.UploadID {
+                conn.SendMessage(router.SSEMessage{
+                    Event: "progress",
+                    Data:  update,
+                })
+            }
+        }
+    }
+}
+```
+
+These examples demonstrate real-world usage patterns with ForgeRouter, showing how to build production-ready APIs with authentication, real-time features, file handling, and comprehensive documentation.

@@ -1,0 +1,333 @@
+# Getting Started
+
+Get up and running with ForgeRouter in minutes. This guide will walk you through installation, basic setup, and your first API endpoints.
+
+## Installation
+
+import { Steps } from 'nextra/components'
+
+<Steps>
+
+    ### Install Go
+
+    ForgeRouter requires Go 1.24 or higher. Check your Go version:
+
+    ```bash
+    go version
+    ```
+
+    If you need to install or upgrade Go, visit [golang.org](https://golang.org/dl/).
+
+    ### Install ForgeRouter
+
+    Add ForgeRouter to your project:
+
+    ```bash
+    go mod init your-project-name
+    go get github.com/xraph/forgerouter
+    ```
+
+    ### Create Your First Server
+
+    Create a `main.go` file:
+
+    ```go
+    package main
+
+    import (
+    "log"
+    "net/http"
+    router "github.com/xraph/forgerouter"
+    )
+
+    func main() {
+    r := router.NewRouter()
+
+    // Simple handler
+    r.GET("/", func(w http.ResponseWriter, req *http.Request) {
+    w.Write([]byte("Hello, ForgeRouter!"))
+})
+
+    log.Println("Server starting on :8080")
+    log.Fatal(http.ListenAndServe(":8080", r))
+}
+    ```
+
+    ### Run Your Server
+
+    ```bash
+    go run main.go
+    ```
+
+    Visit `http://localhost:8080` to see your server in action!
+
+</Steps>
+
+## Your First API
+
+Let's build a simple user API with automatic OpenAPI documentation:
+
+```go
+package main
+
+import (
+    "fmt"
+    "log"
+    "net/http"
+    router "github.com/xraph/forgerouter"
+)
+
+// Request/Response types
+type User struct {
+    ID    int    `json:"id" description:"User ID"`
+    Name  string `json:"name" description:"User name"`
+    Email string `json:"email" description:"User email"`
+    Age   int    `json:"age" description:"User age"`
+}
+
+type GetUserRequest struct {
+    ID int `path:"id" description:"User ID to retrieve"`
+}
+
+type CreateUserRequest struct {
+    Name  string `json:"name" body:"body" description:"User name"`
+    Email string `json:"email" body:"body" description:"User email"`
+    Age   int    `json:"age" body:"body" description:"User age"`
+}
+
+type UserListResponse struct {
+    Users []User `json:"users" description:"List of users"`
+    Total int    `json:"total" description:"Total number of users"`
+}
+
+// In-memory storage (use a real database in production!)
+var users = []User{
+    {ID: 1, Name: "Alice Johnson", Email: "alice@example.com", Age: 28},
+    {ID: 2, Name: "Bob Smith", Email: "bob@example.com", Age: 32},
+}
+var nextID = 3
+
+func main() {
+    r := router.NewRouter()
+
+    // Add middleware
+    r.Use(router.Logger)      // Request logging
+    r.Use(router.Recoverer)   // Panic recovery
+
+    // API routes
+    r.Route("/api/v1", func(api router.Router) {
+        // Get all users
+        api.OpinionatedGET("/users", func(ctx *router.FastContext, req struct{}) (*UserListResponse, error) {
+            return &UserListResponse{
+                Users: users,
+                Total: len(users),
+            }, nil
+        }, router.WithSummary("List Users"), router.WithDescription("Get all users"), router.WithTags("users"))
+
+        // Get user by ID
+        api.OpinionatedGET("/users/:id", func(ctx *router.FastContext, req GetUserRequest) (*User, error) {
+            for _, user := range users {
+                if user.ID == req.ID {
+                    return &user, nil
+                }
+            }
+            return nil, router.NotFound("User")
+        }, router.WithSummary("Get User"), router.WithDescription("Get user by ID"), router.WithTags("users"))
+
+        // Create new user
+        api.OpinionatedPOST("/users", func(ctx *router.FastContext, req CreateUserRequest) (*User, error) {
+            // Validation
+            if req.Name == "" {
+                return nil, router.BadRequest("Name is required")
+            }
+            if req.Email == "" {
+                return nil, router.BadRequest("Email is required")
+            }
+            if req.Age < 0 || req.Age > 120 {
+                return nil, router.BadRequest("Age must be between 0 and 120")
+            }
+
+            // Check if email already exists
+            for _, user := range users {
+                if user.Email == req.Email {
+                    return nil, router.Conflict("Email already exists")
+                }
+            }
+
+            // Create user
+            user := User{
+                ID:    nextID,
+                Name:  req.Name,
+                Email: req.Email,
+                Age:   req.Age,
+            }
+            nextID++
+            users = append(users, user)
+
+            return &user, nil
+        }, router.WithSummary("Create User"), router.WithDescription("Create a new user"), router.WithTags("users"))
+    })
+
+    // Enable OpenAPI documentation
+    r.EnableOpenAPI()
+
+    log.Println("🚀 Server starting on :8080")
+    log.Println("📚 API docs available at http://localhost:8080/openapi/docs")
+    log.Println("🔍 OpenAPI spec at http://localhost:8080/openapi")
+
+    log.Fatal(http.ListenAndServe(":8080", r))
+}
+```
+
+## Test Your API
+
+With your server running, you can test the endpoints:
+
+### Using curl
+
+```bash
+# Get all users
+curl http://localhost:8080/api/v1/users
+
+# Get specific user
+curl http://localhost:8080/api/v1/users/1
+
+# Create new user
+curl -X POST http://localhost:8080/api/v1/users \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Charlie Brown","email":"charlie@example.com","age":25}'
+```
+
+### Using the Interactive Docs
+
+Visit `http://localhost:8080/openapi/docs` to see your automatically generated API documentation. You can test all endpoints directly from the browser!
+
+import { Callout } from 'nextra/components'
+
+<Callout type="info">
+    **Automatic Documentation**: Notice how ForgeRouter automatically generated complete OpenAPI documentation from your Go structs and handler signatures. No manual YAML or annotations required!
+</Callout>
+
+## Understanding the Code
+
+Let's break down what makes this example special:
+
+### 1. Opinionated Handlers
+
+```go
+api.OpinionatedGET("/users/:id", func(ctx *router.FastContext, req GetUserRequest) (*User, error) {
+    // Handler logic
+})
+```
+
+Opinionated handlers provide:
+- **Automatic parameter binding** from path, query, headers, and body
+- **Type safety** with Go structs
+- **Automatic OpenAPI generation** from types and tags
+- **Structured error handling** with appropriate HTTP status codes
+
+### 2. Parameter Binding Tags
+
+```go
+type GetUserRequest struct {
+    ID int `path:"id" description:"User ID to retrieve"`
+}
+
+type CreateUserRequest struct {
+    Name  string `json:"name" body:"body" description:"User name"`
+    Email string `json:"email" body:"body" description:"User email"`
+}
+```
+
+Tags tell ForgeRouter where to find parameters:
+- `path:"id"` - Extract from URL path
+- `query:"limit"` - Extract from query parameters
+- `header:"Authorization"` - Extract from HTTP headers
+- `body:"body"` - Extract from JSON request body
+- `description:"..."` - Add to OpenAPI documentation
+
+### 3. Error Handling
+
+```go
+if req.Name == "" {
+    return nil, router.BadRequest("Name is required")
+}
+
+return nil, router.NotFound("User")
+```
+
+ForgeRouter provides semantic error constructors that:
+- Set appropriate HTTP status codes
+- Generate structured error responses
+- Include error details in OpenAPI documentation
+- Support field-level validation errors
+
+### 4. Route Groups
+
+```go
+r.Route("/api/v1", func(api router.Router) {
+    api.OpinionatedGET("/users", handler)
+    api.OpinionatedPOST("/users", handler)
+})
+```
+
+Route groups help organize your API:
+- Apply middleware to specific route groups
+- Version your APIs easily
+- Keep related endpoints together
+- Nest groups for complex hierarchies
+
+## Next Steps
+
+Now that you have a working API, explore more features:
+
+import { Cards } from 'nextra/components'
+
+<Cards>
+    <Cards.Card
+        icon="🎯"
+        title="Opinionated Handlers"
+        href="/opinionated-handlers"
+    >
+        Learn about advanced parameter binding, validation, and response types
+    </Cards.Card>
+    <Cards.Card
+        icon="⚡"
+        title="Middleware"
+        href="/middleware"
+    >
+        Add authentication, CORS, rate limiting, and custom middleware
+    </Cards.Card>
+    <Cards.Card
+        icon="📚"
+        title="OpenAPI Integration"
+        href="/openapi-integration"
+    >
+        Customize your API documentation and add advanced schemas
+    </Cards.Card>
+    <Cards.Card
+        icon="🔌"
+        title="WebSockets & SSE"
+        href="/websockets-sse"
+    >
+        Add real-time features with WebSockets and Server-Sent Events
+    </Cards.Card>
+    <Cards.Card
+        icon="🧪"
+        title="Testing"
+        href="/testing"
+    >
+        Test your APIs with built-in testing utilities and load testing
+    </Cards.Card>
+    <Cards.Card
+        icon="💡"
+        title="Examples"
+        href="/examples"
+    >
+        See real-world examples and integration patterns
+    </Cards.Card>
+</Cards>
+
+<Callout type="success">
+    **Congratulations!** You've built your first ForgeRouter API with automatic documentation. Your API is production-ready with proper error handling, validation, and documentation.
+</Callout>

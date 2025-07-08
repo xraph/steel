@@ -1,0 +1,519 @@
+# OpenAPI Integration
+
+ForgeRouter automatically generates comprehensive OpenAPI 3.0 documentation from your Go code. No manual YAML files or annotations required - just write your handlers and get production-ready API documentation.
+
+## Quick Setup
+
+Enable OpenAPI documentation with a single line:
+
+```go
+r := router.NewRouter()
+
+// Add your handlers...
+r.OpinionatedGET("/users/:id", getUserHandler)
+
+// Enable OpenAPI documentation
+r.EnableOpenAPI()
+```
+
+Visit these URLs to access your documentation:
+
+- `/openapi/docs` - Documentation hub with multiple viewers
+- `/openapi/swagger` - Swagger UI (interactive)
+- `/openapi/redoc` - ReDoc (beautiful)
+- `/openapi/scalar` - Scalar (modern)
+- `/openapi/spotlight` - Stoplight Elements (comprehensive)
+- `/openapi` - Raw OpenAPI JSON specification
+
+## Automatic Schema Generation
+
+ForgeRouter generates OpenAPI schemas directly from your Go types:
+
+### Basic Types
+
+```go
+type User struct {
+    ID       int       `json:"id" description:"Unique user identifier"`
+    Name     string    `json:"name" description:"User's full name"`
+    Email    string    `json:"email" description:"User's email address"`
+    Age      int       `json:"age" description:"User's age in years"`
+    Active   bool      `json:"active" description:"Whether the user account is active"`
+    Balance  float64   `json:"balance" description:"Account balance in USD"`
+    Created  time.Time `json:"created" description:"Account creation timestamp"`
+}
+```
+
+Generates this OpenAPI schema:
+
+```yaml
+User:
+  type: object
+  properties:
+    id:
+      type: integer
+      description: Unique user identifier
+    name:
+      type: string
+      description: User's full name
+    email:
+      type: string
+      description: User's email address
+    age:
+      type: integer
+      description: User's age in years
+    active:
+      type: boolean
+      description: Whether the user account is active
+    balance:
+      type: number
+      format: double
+      description: Account balance in USD
+    created:
+      type: string
+      format: date-time
+      description: Account creation timestamp
+  required:
+    - id
+    - name
+    - email
+    - age
+    - active
+    - balance
+    - created
+```
+
+### Complex Types
+
+```go
+type Address struct {
+    Street   string `json:"street" description:"Street address"`
+    City     string `json:"city" description:"City name"`
+    State    string `json:"state" description:"State or province"`
+    ZipCode  string `json:"zip_code" description:"Postal code"`
+    Country  string `json:"country" description:"Country code (ISO 3166-1 alpha-2)"`
+}
+
+type UserProfile struct {
+    User        User               `json:"user" description:"User information"`
+    Address     Address            `json:"address" description:"User's address"`
+    Preferences map[string]string  `json:"preferences" description:"User preferences"`
+    Tags        []string           `json:"tags" description:"User tags"`
+    Metadata    map[string]interface{} `json:"metadata" description:"Additional metadata"`
+}
+```
+
+### Optional Fields
+
+Use `omitempty` or pointer types for optional fields:
+
+```go
+type UpdateUserRequest struct {
+    Name    *string `json:"name,omitempty" description:"New name (optional)"`
+    Email   *string `json:"email,omitempty" description:"New email (optional)"`
+    Age     *int    `json:"age,omitempty" description:"New age (optional)"`
+
+    // Alternative approach with omitempty
+    Bio     string  `json:"bio,omitempty" description:"User biography"`
+}
+```
+
+## Parameter Documentation
+
+ForgeRouter automatically documents parameters from your request structs:
+
+```go
+type GetUsersRequest struct {
+    // Path parameters
+    CompanyID int `path:"company_id" description:"Company identifier"`
+
+    // Query parameters
+    Page      int    `query:"page" description:"Page number (1-based)"`
+    Limit     int    `query:"limit" description:"Number of items per page (max 100)"`
+    Search    string `query:"search" description:"Search term for filtering users"`
+    Active    *bool  `query:"active" description:"Filter by active status"`
+    Sort      string `query:"sort" description:"Sort field (name, email, created)"`
+    Order     string `query:"order" description:"Sort order (asc, desc)"`
+
+    // Headers
+    UserAgent string `header:"User-Agent" description:"Client user agent"`
+    RequestID string `header:"X-Request-ID" description:"Request tracking ID"`
+}
+```
+
+This automatically generates parameter documentation in your OpenAPI spec with correct types, locations, and descriptions.
+
+## Validation Constraints
+
+Add validation constraints using struct tags:
+
+```go
+type CreateUserRequest struct {
+    Name     string  `json:"name" description:"User name" min:"2" max:"50" example:"John Doe"`
+    Email    string  `json:"email" description:"Email address" format:"email" example:"john@example.com"`
+    Age      int     `json:"age" description:"User age" min:"18" max:"120" example:"25"`
+    Password string  `json:"password" description:"Password" min:"8" pattern:"^[A-Za-z0-9@$!%*?&]{8,}$"`
+    Website  string  `json:"website,omitempty" description:"Personal website" format:"uri"`
+    Phone    string  `json:"phone,omitempty" description:"Phone number" pattern:"^\\+?[1-9]\\d{1,14}$"`
+}
+```
+
+### Supported Validation Tags
+
+| Tag | Description | Example |
+|-----|-------------|---------|
+| `min` | Minimum value/length | `min:"18"` |
+| `max` | Maximum value/length | `max:"120"` |
+| `pattern` | Regular expression | `pattern:"^[A-Za-z]+$"` |
+| `format` | String format | `format:"email"` |
+| `example` | Example value | `example:"john@example.com"` |
+| `default` | Default value | `default:"active"` |
+
+### Common Formats
+
+```go
+type UserData struct {
+    Email     string    `json:"email" format:"email" description:"Email address"`
+    Website   string    `json:"website" format:"uri" description:"Website URL"`
+    BirthDate time.Time `json:"birth_date" format:"date" description:"Birth date"`
+    Avatar    []byte    `json:"avatar" format:"byte" description:"Avatar image (base64)"`
+    UUID      string    `json:"uuid" format:"uuid" description:"Unique identifier"`
+    IPv4      string    `json:"ip" format:"ipv4" description:"IP address"`
+}
+```
+
+## Response Documentation
+
+### Success Responses
+
+ForgeRouter automatically documents success responses:
+
+```go
+type UserResponse struct {
+    ID      int    `json:"id" description:"User ID"`
+    Name    string `json:"name" description:"User name"`
+    Email   string `json:"email" description:"User email"`
+    Created string `json:"created" description:"Creation timestamp (RFC3339)"`
+}
+
+r.OpinionatedGET("/users/:id", func(ctx *router.FastContext, req GetUserRequest) (*UserResponse, error) {
+    // Returns 200 OK with UserResponse schema
+    return &UserResponse{...}, nil
+})
+```
+
+### Custom Status Codes
+
+Use `APIResponse` for custom status codes:
+
+```go
+r.OpinionatedPOST("/users", func(ctx *router.FastContext, req CreateUserRequest) (*router.APIResponse, error) {
+    user := createUser(req)
+
+    // Documents 201 Created response
+    return router.Created(user).
+        WithHeader("Location", fmt.Sprintf("/users/%d", user.ID)), nil
+})
+```
+
+### Error Responses
+
+ForgeRouter automatically documents standard error responses:
+
+- **400 Bad Request** - Invalid input parameters
+- **401 Unauthorized** - Authentication required
+- **403 Forbidden** - Access denied
+- **404 Not Found** - Resource not found
+- **409 Conflict** - Resource conflict
+- **422 Unprocessable Entity** - Validation errors
+- **429 Too Many Requests** - Rate limit exceeded
+- **500 Internal Server Error** - Server errors
+- **503 Service Unavailable** - Service unavailable
+
+Each error response includes the structured error format:
+
+```json
+{
+  "error": {
+    "status": 422,
+    "code": "VALIDATION_FAILED",
+    "message": "Validation failed",
+    "detail": [
+      {
+        "field": "email",
+        "message": "Invalid email format",
+        "value": "invalid-email",
+        "code": "INVALID_FORMAT"
+      }
+    ],
+    "timestamp": "2024-01-15T10:30:00Z",
+    "request_id": "req-123",
+    "path": "/api/users"
+  }
+}
+```
+
+## Handler Documentation
+
+Use handler options to add metadata:
+
+```go
+r.OpinionatedGET("/users/:id", getUserHandler,
+    router.WithSummary("Get User"),
+    router.WithDescription(`
+        Retrieve a user by their unique identifier.
+
+        This endpoint returns detailed user information including:
+        - Basic profile data
+        - Account status
+        - Creation timestamp
+
+        **Note**: Inactive users will return a 403 Forbidden error.
+    `),
+    router.WithTags("users", "public"),
+)
+
+r.OpinionatedPOST("/users", createUserHandler,
+    router.WithSummary("Create User"),
+    router.WithDescription("Create a new user account with email verification"),
+    router.WithTags("users", "admin"),
+)
+```
+
+## Advanced Schema Customization
+
+### Enums
+
+Define enums using Go constants and struct tags:
+
+```go
+type UserRole string
+
+const (
+    RoleAdmin     UserRole = "admin"
+    RoleUser      UserRole = "user"
+    RoleModerator UserRole = "moderator"
+)
+
+type User struct {
+    ID   int      `json:"id" description:"User ID"`
+    Name string   `json:"name" description:"User name"`
+    Role UserRole `json:"role" description:"User role" enum:"admin,user,moderator"`
+}
+```
+
+### Nested References
+
+ForgeRouter automatically handles complex object references:
+
+```go
+type Department struct {
+    ID   int    `json:"id" description:"Department ID"`
+    Name string `json:"name" description:"Department name"`
+}
+
+type Employee struct {
+    ID         int        `json:"id" description:"Employee ID"`
+    Name       string     `json:"name" description:"Employee name"`
+    Department Department `json:"department" description:"Employee department"`
+    Manager    *Employee  `json:"manager,omitempty" description:"Direct manager"`
+}
+
+// Generates proper $ref relationships in OpenAPI
+```
+
+### Custom Schema Names
+
+Control schema names with type aliases:
+
+```go
+// This creates a "PublicUser" schema instead of using the struct name
+type PublicUser User
+
+type GetUserResponse struct {
+    User PublicUser `json:"user" description:"Public user information"`
+}
+```
+
+## Documentation Viewers
+
+ForgeRouter provides multiple documentation viewers:
+
+### Swagger UI
+
+Interactive documentation with try-it-out functionality:
+
+```go
+// Access at /openapi/swagger
+```
+
+Features:
+- Interactive API testing
+- Request/response examples
+- Authentication testing
+- Schema exploration
+
+### ReDoc
+
+Beautiful, responsive documentation:
+
+```go
+// Access at /openapi/redoc
+```
+
+Features:
+- Clean, professional design
+- Mobile-responsive
+- Advanced search
+- Code samples in multiple languages
+
+### Scalar
+
+Modern documentation with excellent UX:
+
+```go
+// Access at /openapi/scalar
+```
+
+Features:
+- Fast, modern interface
+- Advanced filtering
+- Real-time API testing
+- Excellent performance
+
+### Stoplight Elements
+
+Comprehensive documentation platform:
+
+```go
+// Access at /openapi/spotlight
+```
+
+Features:
+- Advanced documentation features
+- Interactive examples
+- Mock servers
+- Comprehensive testing tools
+
+## Configuration
+
+### Custom OpenAPI Info
+
+```go
+r := router.NewRouter()
+
+// Customize OpenAPI metadata
+r.options.OpenAPITitle = "My Amazing API"
+r.options.OpenAPIVersion = "2.1.0"
+r.options.OpenAPIDescription = "A comprehensive API for managing users and orders"
+
+r.EnableOpenAPI()
+```
+
+### Custom Documentation Route
+
+```go
+// Serve documentation at custom path
+r.GET("/docs", func(w http.ResponseWriter, req *http.Request) {
+    // Redirect to your preferred documentation viewer
+    http.Redirect(w, req, "/openapi/scalar", http.StatusFound)
+})
+```
+
+## Production Considerations
+
+import { Callout } from 'nextra/components'
+
+<Callout type="warning">
+    **Performance**: OpenAPI generation happens at startup, not per request. The documentation routes serve pre-generated specifications for optimal performance.
+</Callout>
+
+### Security
+
+Consider restricting access to documentation in production:
+
+```go
+// Only serve docs in development
+if os.Getenv("ENV") != "production" {
+    r.EnableOpenAPI()
+}
+
+// Or require authentication
+r.Route("/openapi", func(docs router.Router) {
+    docs.Use(authMiddleware) // Add your auth middleware
+
+    // Then enable OpenAPI routes...
+})
+```
+
+### Customization
+
+For advanced customization, you can access the OpenAPI spec directly:
+
+```go
+r.EnableOpenAPI()
+
+// Modify the spec after generation
+r.GET("/openapi", func(w http.ResponseWriter, req *http.Request) {
+    spec := r.GetOpenAPISpec() // Access the spec
+
+    // Customize as needed
+    spec.Info.Contact = &OpenAPIContact{
+        Name:  "API Support",
+        Email: "support@example.com",
+        URL:   "https://example.com/support",
+    }
+
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(spec)
+})
+```
+
+## Best Practices
+
+### 1. Comprehensive Descriptions
+
+```go
+type CreateOrderRequest struct {
+    ProductID int `json:"product_id" description:"ID of the product to order (must be active)"`
+    Quantity  int `json:"quantity" description:"Number of items to order (1-100)" min:"1" max:"100"`
+    Notes     string `json:"notes,omitempty" description:"Special instructions for the order (max 500 chars)" max:"500"`
+}
+```
+
+### 2. Consistent Response Formats
+
+```go
+// Use consistent response wrappers
+type APIListResponse[T any] struct {
+    Data  []T `json:"data" description:"List of items"`
+    Total int `json:"total" description:"Total number of items"`
+    Page  int `json:"page" description:"Current page number"`
+    Limit int `json:"limit" description:"Items per page"`
+}
+
+type UserListResponse = APIListResponse[User]
+type OrderListResponse = APIListResponse[Order]
+```
+
+### 3. Version Your APIs
+
+```go
+r.Route("/api/v1", func(v1 router.Router) {
+    v1.OpinionatedGET("/users", getUsersV1Handler)
+})
+
+r.Route("/api/v2", func(v2 router.Router) {
+    v2.OpinionatedGET("/users", getUsersV2Handler)
+})
+```
+
+### 4. Tag Organization
+
+```go
+// Organize endpoints with tags
+r.OpinionatedGET("/users", handler, router.WithTags("users", "public"))
+r.OpinionatedPOST("/users", handler, router.WithTags("users", "admin"))
+r.OpinionatedGET("/orders", handler, router.WithTags("orders", "public"))
+```
+
+OpenAPI integration in ForgeRouter eliminates the need for manual documentation maintenance while ensuring your API docs are always accurate and up-to-date with your code.

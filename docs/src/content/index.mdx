@@ -1,0 +1,161 @@
+# ForgeRouter Documentation
+
+Welcome to ForgeRouter, a high-performance HTTP router for Go that makes building APIs a joy. With automatic OpenAPI documentation, real-time WebSocket/SSE support, and comprehensive testing utilities, ForgeRouter helps you build robust APIs faster.
+
+## Why ForgeRouter?
+
+import { Cards } from 'nextra/components'
+
+<Cards>
+    <Cards.Card
+        icon="🚀"
+        title="High Performance"
+        href="/basic-routing"
+    >
+        Fast radix tree-based routing with zero allocations for parameter extraction
+    </Cards.Card>
+    <Cards.Card
+        icon="📚"
+        title="Automatic OpenAPI"
+        href="/openapi-integration"
+    >
+        Generate complete OpenAPI 3.0 documentation from your handlers automatically
+    </Cards.Card>
+    <Cards.Card
+        icon="🔌"
+        title="Real-time Support"
+        href="/websockets-sse"
+    >
+        Built-in WebSocket and Server-Sent Events support with AsyncAPI documentation
+    </Cards.Card>
+    <Cards.Card
+        icon="🎯"
+        title="Type-Safe"
+        href="/opinionated-handlers"
+    >
+        Opinionated handlers with automatic parameter binding and validation
+    </Cards.Card>
+    <Cards.Card
+        icon="🧪"
+        title="Testing Utilities"
+        href="/testing"
+    >
+        Comprehensive testing framework with request builders and assertions
+    </Cards.Card>
+    <Cards.Card
+        icon="⚡"
+        title="Middleware System"
+        href="/middleware"
+    >
+        Flexible middleware with built-in recovery, logging, and timeout support
+    </Cards.Card>
+</Cards>
+
+## Quick Example
+
+Here's a complete API server in just a few lines:
+
+```go
+package main
+
+import (
+    "log"
+    "net/http"
+    router "github.com/xraph/forgerouter"
+)
+
+type User struct {
+    ID   int    `json:"id" path:"id" description:"User ID"`
+    Name string `json:"name" query:"name" description:"User name"`
+}
+
+type UserResponse struct {
+    ID      int    `json:"id" description:"User ID"`
+    Name    string `json:"name" description:"User name"`
+    Message string `json:"message" description:"Welcome message"`
+}
+
+func main() {
+    r := router.NewRouter()
+
+    // Add middleware
+    r.Use(router.Logger, router.Recoverer)
+
+    // Opinionated handler with automatic OpenAPI generation
+    r.OpinionatedGET("/users/:id", func(ctx *router.FastContext, req User) (*UserResponse, error) {
+        return &UserResponse{
+            ID:      req.ID,
+            Name:    req.Name,
+            Message: fmt.Sprintf("Welcome, %s!", req.Name),
+        }, nil
+    }, router.WithSummary("Get User"), router.WithTags("users"))
+
+    // Enable automatic OpenAPI documentation
+    r.EnableOpenAPI()
+
+    log.Println("Server starting on :8080")
+    log.Println("API docs available at http://localhost:8080/openapi/docs")
+    log.Fatal(http.ListenAndServe(":8080", r))
+}
+```
+
+Visit `http://localhost:8080/openapi/docs` to see your automatically generated API documentation!
+
+## Key Features
+
+### 🏗️ Architecture Highlights
+
+- **Radix Tree Routing**: Efficient O(log n) route matching
+- **Zero Allocations**: Parameter extraction without memory allocations
+- **Reflection-Based Binding**: Automatic request binding using Go reflection
+- **Real-time Documentation**: OpenAPI and AsyncAPI specs generated on-the-fly
+- **Connection Management**: Built-in WebSocket and SSE connection pooling
+
+### 📊 Documentation Viewers
+
+ForgeRouter supports multiple documentation viewers out of the box:
+
+- **Swagger UI** - Interactive API documentation with try-it-out
+- **ReDoc** - Beautiful, responsive documentation
+- **Scalar** - Modern documentation with excellent UX
+- **Stoplight Elements** - Comprehensive documentation platform
+
+### 🔧 Developer Experience
+
+- **Type Safety**: Full Go type system integration
+- **Error Handling**: Rich error types with automatic documentation
+- **Testing**: Built-in testing utilities and load testing
+- **Debugging**: Route inspection and middleware debugging tools
+- **Hot Reload**: Development server with automatic reloading
+
+## Getting Started
+
+Ready to build your first API? Let's get started!
+
+import { Callout } from 'nextra/components'
+
+<Callout type="info">
+    **Prerequisites**: Go 1.24+ is required. ForgeRouter takes advantage of the latest Go features for optimal performance.
+</Callout>
+
+1. **Install ForgeRouter**
+```bash
+go get github.com/xraph/forgerouter
+   ```
+
+2. **Follow the [Getting Started Guide](/getting-started)**
+
+3. **Explore [Examples](/examples)**
+
+4. **Read the [API Reference](/api-reference)**
+
+## Community & Support
+
+- 🐛 [Report Issues](https://github.com/xraph/forgerouter/issues)
+- 💡 [Feature Requests](https://github.com/xraph/forgerouter/issues)
+- 💬 [Discussions](https://github.com/xraph/forgerouter/discussions)
+- 📖 [Contributing Guide](https://github.com/xraph/forgerouter/blob/main/CONTRIBUTING.md)
+
+---
+
+**Ready to forge your next API?** Let's dive into the [Getting Started Guide](/getting-started)!

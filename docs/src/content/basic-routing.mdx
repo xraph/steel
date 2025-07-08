@@ -1,0 +1,660 @@
+# Basic Routing
+
+ForgeRouter provides a fast and flexible routing system built on a radix tree for optimal performance. Learn the fundamentals of URL routing, parameter extraction, and route organization.
+
+## Creating a Router
+
+```go
+import router "github.com/xraph/forgerouter"
+
+func main() {
+    r := router.NewRouter()
+
+    // Your routes here...
+
+    log.Fatal(http.ListenAndServe(":8080", r))
+}
+```
+
+## HTTP Methods
+
+ForgeRouter supports all standard HTTP methods:
+
+```go
+r := router.NewRouter()
+
+r.GET("/users", getUsersHandler)
+r.POST("/users", createUserHandler)
+r.PUT("/users/:id", updateUserHandler)
+r.DELETE("/users/:id", deleteUserHandler)
+r.PATCH("/users/:id", patchUserHandler)
+r.HEAD("/users/:id", headUserHandler)
+r.OPTIONS("/users", optionsHandler)
+```
+
+### Generic Handler Registration
+
+You can also use the generic `Handle` method:
+
+```go
+r.Handle("GET", "/users", getUsersHandler)
+r.Handle("POST", "/users", createUserHandler)
+
+// Or with http.HandlerFunc
+r.HandleFunc("GET", "/health", func(w http.ResponseWriter, r *http.Request) {
+    w.WriteHeader(http.StatusOK)
+    w.Write([]byte("OK"))
+})
+```
+
+## Path Parameters
+
+Extract dynamic values from URLs using path parameters:
+
+### Basic Parameters
+
+```go
+// Single parameter
+r.GET("/users/:id", func(w http.ResponseWriter, r *http.Request) {
+    userID := router.URLParam(r, "id")
+    fmt.Fprintf(w, "User ID: %s", userID)
+})
+
+// Multiple parameters
+r.GET("/users/:userId/posts/:postId", func(w http.ResponseWriter, r *http.Request) {
+    userID := router.URLParam(r, "userId")
+    postID := router.URLParam(r, "postId")
+    fmt.Fprintf(w, "User: %s, Post: %s", userID, postID)
+})
+```
+
+### URL Examples
+
+```go
+// Route: /users/:id
+"/users/123"           // id = "123"
+"/users/abc"           // id = "abc"
+"/users/user-456"      // id = "user-456"
+
+// Route: /users/:userId/posts/:postId
+"/users/123/posts/456" // userId = "123", postId = "456"
+"/users/john/posts/my-first-post" // userId = "john", postId = "my-first-post"
+```
+
+### Parameter Constraints
+
+While ForgeRouter doesn't have built-in parameter constraints, you can validate them in your handlers:
+
+```go
+r.GET("/users/:id", func(w http.ResponseWriter, r *http.Request) {
+    idStr := router.URLParam(r, "id")
+
+    // Validate numeric ID
+    id, err := strconv.Atoi(idStr)
+    if err != nil {
+        http.Error(w, "Invalid user ID", http.StatusBadRequest)
+        return
+    }
+
+    if id <= 0 {
+        http.Error(w, "User ID must be positive", http.StatusBadRequest)
+        return
+    }
+
+    // Continue with valid ID...
+    fmt.Fprintf(w, "Valid user ID: %d", id)
+})
+```
+
+## Wildcard Routes
+
+Use wildcards to match any path under a prefix:
+
+```go
+// Catch-all wildcard
+r.GET("/static/*", func(w http.ResponseWriter, r *http.Request) {
+    // Serves any file under /static/
+    filePath := r.URL.Path[len("/static/"):]
+    fmt.Fprintf(w, "Serving file: %s", filePath)
+})
+
+// File server example
+r.GET("/assets/*", func(w http.ResponseWriter, r *http.Request) {
+    fs := http.FileServer(http.Dir("./assets/"))
+    http.StripPrefix("/assets/", fs).ServeHTTP(w, r)
+})
+```
+
+### Wildcard Examples
+
+```go
+// Route: /static/*
+"/static/css/style.css"     // Matches
+"/static/js/app.js"         // Matches
+"/static/images/logo.png"   // Matches
+"/static/fonts/arial.woff"  // Matches
+
+// Route: /api/v1/*
+"/api/v1/users"             // Matches
+"/api/v1/users/123"         // Matches
+"/api/v1/posts/456/comments" // Matches
+```
+
+## Route Priority
+
+ForgeRouter matches routes in this order:
+
+1. **Static routes** (exact matches)
+2. **Parameter routes** (`:param`)
+3. **Wildcard routes** (`*`)
+
+```go
+r.GET("/users/admin", staticHandler)     // Highest priority
+r.GET("/users/:id", paramHandler)       // Medium priority
+r.GET("/users/*", wildcardHandler)      // Lowest priority
+
+// URL: /users/admin -> staticHandler
+// URL: /users/123   -> paramHandler
+// URL: /users/admin/settings -> wildcardHandler
+```
+
+### Specific vs Generic Routes
+
+When defining routes, place more specific routes before generic ones:
+
+```go
+// ✅ Good: Specific routes first
+r.GET("/api/health", healthHandler)
+r.GET("/api/version", versionHandler)
+r.GET("/api/:resource", genericHandler)
+
+// ❌ Avoid: Generic route would catch everything
+r.GET("/api/:resource", genericHandler)
+r.GET("/api/health", healthHandler)      // Never reached!
+```
+
+## Route Groups
+
+Organize related routes using route groups:
+
+### Basic Grouping
+
+```go
+r.Route("/api", func(api router.Router) {
+    api.GET("/users", getUsersHandler)
+    api.POST("/users", createUserHandler)
+    api.GET("/posts", getPostsHandler)
+})
+
+// Creates routes:
+// GET  /api/users
+// POST /api/users
+// GET  /api/posts
+```
+
+### Nested Groups
+
+```go
+r.Route("/api", func(api router.Router) {
+    api.Route("/v1", func(v1 router.Router) {
+        v1.Route("/users", func(users router.Router) {
+            users.GET("/", listUsersHandler)
+            users.POST("/", createUserHandler)
+            users.GET("/:id", getUserHandler)
+            users.PUT("/:id", updateUserHandler)
+            users.DELETE("/:id", deleteUserHandler)
+        })
+    })
+})
+
+// Creates routes:
+// GET    /api/v1/users/
+// POST   /api/v1/users/
+// GET    /api/v1/users/:id
+// PUT    /api/v1/users/:id
+// DELETE /api/v1/users/:id
+```
+
+### Practical Example
+
+```go
+func setupRoutes() *router.FastRouter {
+    r := router.NewRouter()
+
+    // Public routes
+    r.GET("/", homeHandler)
+    r.GET("/health", healthHandler)
+
+    // API v1
+    r.Route("/api/v1", func(v1 router.Router) {
+        // Public API endpoints
+        v1.GET("/products", getProductsHandler)
+        v1.GET("/products/:id", getProductHandler)
+
+        // User management
+        v1.Route("/users", func(users router.Router) {
+            users.POST("/register", registerHandler)
+            users.POST("/login", loginHandler)
+
+            // Protected user routes would go here with middleware
+        })
+
+        // Admin endpoints
+        v1.Route("/admin", func(admin router.Router) {
+            // Admin routes would include auth middleware
+            admin.GET("/stats", getStatsHandler)
+            admin.GET("/users", getAllUsersHandler)
+        })
+    })
+
+    return r
+}
+```
+
+## Mounting Sub-Routers
+
+Mount existing HTTP handlers or sub-applications:
+
+### Basic Mounting
+
+```go
+// Mount a file server
+fileServer := http.FileServer(http.Dir("./uploads/"))
+r.Mount("/uploads", fileServer)
+
+// Mount another HTTP handler
+adminMux := http.NewServeMux()
+adminMux.HandleFunc("/dashboard", dashboardHandler)
+adminMux.HandleFunc("/settings", settingsHandler)
+r.Mount("/admin", adminMux)
+```
+
+### Mounting with Middleware
+
+```go
+// Create a sub-router with its own middleware
+apiV2 := router.NewRouter()
+apiV2.Use(v2AuthMiddleware)
+apiV2.Use(v2RateLimitMiddleware)
+apiV2.GET("/users", v2GetUsersHandler)
+apiV2.POST("/users", v2CreateUserHandler)
+
+// Mount the sub-router
+r.Mount("/api/v2", apiV2)
+```
+
+### Real-world Example
+
+```go
+func main() {
+    r := router.NewRouter()
+
+    // Mount Prometheus metrics
+    r.Mount("/metrics", promhttp.Handler())
+
+    // Mount pprof for debugging (development only)
+    if os.Getenv("ENV") == "development" {
+        r.Mount("/debug", http.DefaultServeMux)
+    }
+
+    // Mount static file servers
+    r.Mount("/static", http.FileServer(http.Dir("./static/")))
+    r.Mount("/uploads", http.FileServer(http.Dir("./uploads/")))
+
+    // Mount API documentation
+    docsHandler := http.FileServer(http.Dir("./docs/"))
+    r.Mount("/docs", http.StripPrefix("/docs", docsHandler))
+
+    // Your API routes
+    r.Route("/api", func(api router.Router) {
+        // API routes here...
+    })
+
+    log.Fatal(http.ListenAndServe(":8080", r))
+}
+```
+
+## Query Parameters
+
+Access query parameters using the standard library or FastContext:
+
+### Standard Way
+
+```go
+r.GET("/search", func(w http.ResponseWriter, r *http.Request) {
+    query := r.URL.Query().Get("q")
+    page := r.URL.Query().Get("page")
+    limit := r.URL.Query().Get("limit")
+
+    fmt.Fprintf(w, "Query: %s, Page: %s, Limit: %s", query, page, limit)
+})
+```
+
+### With FastContext
+
+```go
+r.GET("/search", func(w http.ResponseWriter, r *http.Request) {
+    ctx := &router.FastContext{
+        Request:  r,
+        Response: w,
+    }
+
+    query := ctx.Query("q")
+    page := ctx.Query("page")
+    limit := ctx.Query("limit")
+
+    fmt.Fprintf(w, "Query: %s, Page: %s, Limit: %s", query, page, limit)
+})
+```
+
+### Query Parameter Examples
+
+```go
+// URL: /search?q=golang&page=2&limit=10&sort=date&order=desc
+r.URL.Query().Get("q")     // "golang"
+r.URL.Query().Get("page")  // "2"
+r.URL.Query().Get("limit") // "10"
+r.URL.Query().Get("sort")  // "date"
+r.URL.Query().Get("order") // "desc"
+r.URL.Query().Get("missing") // "" (empty string)
+
+// Multiple values
+// URL: /filter?tags=go&tags=web&tags=api
+r.URL.Query()["tags"] // []string{"go", "web", "api"}
+```
+
+## Headers
+
+Access request headers:
+
+```go
+r.GET("/api/data", func(w http.ResponseWriter, r *http.Request) {
+    // Get specific headers
+    contentType := r.Header.Get("Content-Type")
+    userAgent := r.Header.Get("User-Agent")
+    authorization := r.Header.Get("Authorization")
+
+    // Custom headers
+    requestID := r.Header.Get("X-Request-ID")
+    apiKey := r.Header.Get("X-API-Key")
+
+    // Check if header exists
+    if auth := r.Header.Get("Authorization"); auth == "" {
+        http.Error(w, "Authorization header required", http.StatusUnauthorized)
+        return
+    }
+
+    // Set response headers
+    w.Header().Set("Content-Type", "application/json")
+    w.Header().Set("X-Response-ID", generateResponseID())
+
+    // Response...
+})
+```
+
+## Request Body
+
+Handle request bodies for POST, PUT, and PATCH requests:
+
+### JSON Body
+
+```go
+type CreateUserRequest struct {
+    Name  string `json:"name"`
+    Email string `json:"email"`
+    Age   int    `json:"age"`
+}
+
+r.POST("/users", func(w http.ResponseWriter, r *http.Request) {
+    var req CreateUserRequest
+
+    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+        http.Error(w, "Invalid JSON", http.StatusBadRequest)
+        return
+    }
+
+    // Validate request
+    if req.Name == "" {
+        http.Error(w, "Name is required", http.StatusBadRequest)
+        return
+    }
+
+    // Process request...
+    user := createUser(req.Name, req.Email, req.Age)
+
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(user)
+})
+```
+
+### Form Data
+
+```go
+r.POST("/contact", func(w http.ResponseWriter, r *http.Request) {
+    if err := r.ParseForm(); err != nil {
+        http.Error(w, "Invalid form data", http.StatusBadRequest)
+        return
+    }
+
+    name := r.FormValue("name")
+    email := r.FormValue("email")
+    message := r.FormValue("message")
+
+    // Process form...
+    processContactForm(name, email, message)
+
+    w.WriteHeader(http.StatusOK)
+    w.Write([]byte("Message sent"))
+})
+```
+
+### Raw Body
+
+```go
+r.POST("/webhook", func(w http.ResponseWriter, r *http.Request) {
+    body, err := io.ReadAll(r.Body)
+    if err != nil {
+        http.Error(w, "Failed to read body", http.StatusBadRequest)
+        return
+    }
+
+    // Verify webhook signature
+    signature := r.Header.Get("X-Signature")
+    if !verifySignature(body, signature) {
+        http.Error(w, "Invalid signature", http.StatusUnauthorized)
+        return
+    }
+
+    // Process webhook...
+    processWebhook(body)
+
+    w.WriteHeader(http.StatusOK)
+})
+```
+
+## Router Configuration
+
+Customize router behavior:
+
+```go
+r := router.NewRouter()
+
+// Configure trailing slash behavior
+r.SetTrailingSlashRedirect(true)  // Redirect /users/ to /users
+r.SetFixedPathRedirect(true)      // Handle case-insensitive redirects
+
+// Custom 404 handler
+r.SetNotFoundHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+    w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(http.StatusNotFound)
+    json.NewEncoder(w).Encode(map[string]string{
+        "error":   "Not Found",
+        "message": "The requested resource was not found",
+        "path":    r.URL.Path,
+    })
+}))
+
+// Custom method not allowed handler
+r.SetMethodNotAllowedHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+    w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(http.StatusMethodNotAllowed)
+    json.NewEncoder(w).Encode(map[string]string{
+        "error":   "Method Not Allowed",
+        "message": fmt.Sprintf("Method %s is not allowed for this resource", r.Method),
+        "path":    r.URL.Path,
+    })
+}))
+```
+
+## Route Debugging
+
+Debug your routes during development:
+
+```go
+r := router.NewRouter()
+
+// Add some routes
+r.GET("/", homeHandler)
+r.GET("/users/:id", getUserHandler)
+r.POST("/users", createUserHandler)
+r.GET("/static/*", staticHandler)
+
+// Print route tree (development only)
+if os.Getenv("ENV") == "development" {
+    r.DebugRoutes()
+}
+```
+
+Output example:
+```
+=== FastRouter Debug Info ===
+Method: GET
+  Path: "", HasHandler: true, IsParam: false, ParamName: "", Wildcard: false
+  Path: "users", HasHandler: false, IsParam: false, ParamName: "", Wildcard: false
+    Path: "", HasHandler: false, IsParam: true, ParamName: "id", Wildcard: false
+  Path: "static", HasHandler: false, IsParam: false, ParamName: "", Wildcard: false
+    Path: "", HasHandler: true, IsParam: false, ParamName: "", Wildcard: true
+
+Method: POST
+  Path: "users", HasHandler: true, IsParam: false, ParamName: "", Wildcard: false
+```
+
+## Performance Considerations
+
+import { Callout } from 'nextra/components'
+
+<Callout type="info">
+    **Performance**: ForgeRouter uses a radix tree for O(log n) route lookup and pools parameter objects to minimize allocations.
+</Callout>
+
+### Route Organization
+
+```go
+// ✅ Good: Organize routes logically
+r.Route("/api/v1", func(v1 router.Router) {
+    v1.Route("/users", func(users router.Router) {
+        users.GET("/", listUsers)
+        users.POST("/", createUser)
+        users.GET("/:id", getUser)
+        users.PUT("/:id", updateUser)
+        users.DELETE("/:id", deleteUser)
+    })
+})
+
+// ✅ Good: Group related functionality
+r.Route("/admin", func(admin router.Router) {
+    admin.Use(adminAuthMiddleware)
+    // All admin routes here
+})
+```
+
+### Efficient Parameter Extraction
+
+```go
+// ✅ Efficient: Extract parameters once
+r.GET("/users/:userId/posts/:postId", func(w http.ResponseWriter, r *http.Request) {
+    params := router.ParamsFromContext(r.Context())
+    userID := params.Get("userId")
+    postID := params.Get("postId")
+
+    // Use userID and postID...
+})
+
+// ❌ Less efficient: Multiple extractions
+r.GET("/users/:userId/posts/:postId", func(w http.ResponseWriter, r *http.Request) {
+    userID := router.URLParam(r, "userId")    // Extracts from context
+    postID := router.URLParam(r, "postId")    // Extracts from context again
+
+    // This works but is less efficient
+})
+```
+
+## Common Patterns
+
+### RESTful Resource Routes
+
+```go
+func setupUserRoutes(r router.Router) {
+    r.Route("/users", func(users router.Router) {
+        users.GET("/", listUsers)           // GET /users
+        users.POST("/", createUser)         // POST /users
+        users.GET("/:id", getUser)          // GET /users/:id
+        users.PUT("/:id", updateUser)       // PUT /users/:id
+        users.PATCH("/:id", patchUser)      // PATCH /users/:id
+        users.DELETE("/:id", deleteUser)    // DELETE /users/:id
+
+        // Nested resources
+        users.Route("/:id/posts", func(posts router.Router) {
+            posts.GET("/", getUserPosts)    // GET /users/:id/posts
+            posts.POST("/", createUserPost) // POST /users/:id/posts
+        })
+    })
+}
+```
+
+### API Versioning
+
+```go
+func setupVersionedAPI(r *router.FastRouter) {
+    // Version 1
+    r.Route("/api/v1", func(v1 router.Router) {
+        v1.GET("/users", v1GetUsers)
+        v1.POST("/users", v1CreateUser)
+    })
+
+    // Version 2 with breaking changes
+    r.Route("/api/v2", func(v2 router.Router) {
+        v2.Use(v2Middleware)
+        v2.GET("/users", v2GetUsers)
+        v2.POST("/users", v2CreateUser)
+    })
+
+    // Latest version alias
+    r.Route("/api/latest", func(latest router.Router) {
+        latest.GET("/users", v2GetUsers)
+        latest.POST("/users", v2CreateUser)
+    })
+}
+```
+
+### Content Negotiation
+
+```go
+r.GET("/api/data", func(w http.ResponseWriter, r *http.Request) {
+    data := getData()
+
+    switch r.Header.Get("Accept") {
+    case "application/xml":
+        w.Header().Set("Content-Type", "application/xml")
+        xml.NewEncoder(w).Encode(data)
+    case "text/csv":
+        w.Header().Set("Content-Type", "text/csv")
+        writeCSV(w, data)
+    default: // JSON
+        w.Header().Set("Content-Type", "application/json")
+        json.NewEncoder(w).Encode(data)
+    }
+})
+```
+
+Basic routing in ForgeRouter provides a solid foundation for building scalable web applications with clean, maintainable URL structures.
