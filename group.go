@@ -1,4 +1,4 @@
-package forge_router
+package forgerouter
 
 import (
 	"net/http"
@@ -126,4 +126,14 @@ func (g *RouteGroup) WebSocket(pattern string, handler interface{}, opts ...Asyn
 
 func (g *RouteGroup) SSE(pattern string, handler interface{}, opts ...AsyncHandlerOption) {
 	g.router.SSE(g.prefix+pattern, handler, opts...)
+}
+
+func (g *RouteGroup) UseOpinionated(middleware ...OpinionatedMiddleware) {
+	g.router.UseOpinionated(middleware...)
+}
+
+func (g *RouteGroup) UseOpinionatedIf(condition bool, middleware ...OpinionatedMiddleware) {
+	if condition {
+		g.UseOpinionated(middleware...)
+	}
 }

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/xraph/forgerouter"
+	"github.com/xraph/forgerouter/middleware"
 )
 
 // ChatMessage Example message types for WebSocket
@@ -39,7 +40,7 @@ type NotificationMessage struct {
 }
 
 func main() {
-	router := forge_router.NewRouter()
+	router := forgerouter.NewRouter()
 
 	// Add debug logging to see what's happening
 	router.Use(func(next http.Handler) http.Handler {
@@ -53,12 +54,51 @@ func main() {
 	router.EnableOpenAPI()
 	router.EnableAsyncAPI()
 
+	router.OpenAPI().
+		SetTitle("Enterprise Resource API").
+		SetVersion("3.1.0").
+		SetDescription("Comprehensive enterprise resource management API").
+		SetContact("Enterprise API Team", "https://enterprise.com/api", "api@enterprise.com").
+		SetLicense("Proprietary", "https://enterprise.com/license").
+
+		// Multiple servers
+		AddServer("https://api.enterprise.com", "Production").
+		AddServer("https://staging-api.enterprise.com", "Staging").
+		AddServer("https://dev-api.enterprise.com", "Development").
+
+		// Multiple authentication options
+		AddAPIKeyAuth("ApiKeyAuth", "X-API-Key", "API key for service-to-service").
+		AddBearerAuth("JWTAuth", "JWT tokens for user authentication", "JWT").
+		AddOAuth2AuthCode("OAuth2",
+			"https://auth.enterprise.com/oauth2/authorize",
+			"https://auth.enterprise.com/oauth2/token",
+			"OAuth2 for third-party integrations",
+			map[string]string{
+				"read:users":      "Read user information",
+				"write:users":     "Modify user information",
+				"read:resources":  "Read resource data",
+				"write:resources": "Modify resource data",
+				"admin":           "Administrative access",
+			}).
+
+		// Users can authenticate with any method
+		RequireAnyAuth("ApiKeyAuth", "JWTAuth", "OAuth2").
+
+		// Comprehensive tagging
+		AddTag("users", "User management operations").
+		AddTag("resources", "Resource management").
+		AddTag("admin", "Administrative functions").
+		AddTag("reports", "Reporting and analytics").
+		AddTag("audit", "Audit and compliance").
+		SetExternalDocs("https://docs.enterprise.com", "Complete Documentation").
+		Build()
+
 	// Standard middleware
-	router.Use(forge_router.Logger)
-	router.Use(forge_router.Recoverer)
+	router.Use(middleware.Logger)
+	router.Use(middleware.Recoverer)
 
 	// WebSocket chat endpoint
-	router.WebSocket("/ws/chat/{room_id}", func(conn *forge_router.WSConnection, message ChatMessage) (*ChatResponse, error) {
+	router.WebSocket("/ws/chat/{room_id}", func(conn *forgerouter.WSConnection, message ChatMessage) (*ChatResponse, error) {
 		log.Printf("Received chat message from %s in room %s: %s",
 			message.UserID, message.RoomID, message.Message)
 
@@ -67,7 +107,7 @@ func main() {
 		conn.SetMetadata("room_id", message.RoomID)
 
 		// Broadcast message to all connections in the same room
-		broadcastMessage := forge_router.WSMessage{
+		broadcastMessage := forgerouter.WSMessage{
 			Type: "chat_message",
 			Payload: map[string]interface{}{
 				"user_id":   message.UserID,
@@ -91,13 +131,13 @@ func main() {
 			Timestamp: time.Now(),
 		}, nil
 	},
-		forge_router.WithAsyncSummary("Real-time chat messaging"),
-		forge_router.WithAsyncDescription("WebSocket endpoint for real-time chat in rooms"),
-		forge_router.WithAsyncTags("chat", "websocket", "real-time"),
+		forgerouter.WithAsyncSummary("Real-time chat messaging"),
+		forgerouter.WithAsyncDescription("WebSocket endpoint for real-time chat in rooms"),
+		forgerouter.WithAsyncTags("chat", "websocket", "real-time"),
 	)
 
 	// SSE notifications endpoint
-	router.SSE("/sse/notifications/{user_id}", func(conn *forge_router.SSEConnection, params NotificationParams) error {
+	router.SSE("/sse/notifications/{user_id}", func(conn *forgerouter.SSEConnection, params NotificationParams) error {
 		log.Printf("Starting SSE for user %s, topics: %s", params.UserID, params.Topics)
 
 		// Set user metadata
@@ -105,7 +145,7 @@ func main() {
 		conn.SetMetadata("topics", params.Topics)
 
 		// Send initial connection message
-		conn.SendMessage(forge_router.SSEMessage{
+		conn.SendMessage(forgerouter.SSEMessage{
 			Event: "connected",
 			Data: map[string]interface{}{
 				"message": "Connected to notification stream",
@@ -133,7 +173,7 @@ func main() {
 				if conn.IsClosed() {
 					return nil
 				}
-				conn.SendMessage(forge_router.SSEMessage{
+				conn.SendMessage(forgerouter.SSEMessage{
 					Event: "heartbeat",
 					Data: map[string]interface{}{
 						"timestamp": time.Now(),
@@ -145,13 +185,13 @@ func main() {
 			}
 		}
 	},
-		forge_router.WithAsyncSummary("Real-time notifications"),
-		forge_router.WithAsyncDescription("Server-sent events for real-time notifications"),
-		forge_router.WithAsyncTags("notifications", "sse", "real-time"),
+		forgerouter.WithAsyncSummary("Real-time notifications"),
+		forgerouter.WithAsyncDescription("Server-sent events for real-time notifications"),
+		forgerouter.WithAsyncTags("notifications", "sse", "real-time"),
 	)
 
 	// REST API endpoint to send notifications
-	router.OpinionatedPOST("/api/notifications", func(ctx *forge_router.FastContext, input struct {
+	router.OpinionatedPOST("/api/notifications", func(ctx *forgerouter.FastContext, input struct {
 		UserID  string `json:"user_id" description:"Target user ID"`
 		Type    string `json:"type" description:"Notification type"`
 		Title   string `json:"title" description:"Notification title"`
@@ -175,7 +215,7 @@ func main() {
 		sent := false
 		for _, sseConn := range cm.SSEConnections() {
 			if userID, ok := sseConn.GetMetadata("user_id"); ok && userID == input.UserID {
-				sseConn.SendMessage(forge_router.SSEMessage{
+				sseConn.SendMessage(forgerouter.SSEMessage{
 					Event: "notification",
 					Data:  notification,
 				})
@@ -195,13 +235,13 @@ func main() {
 			Message: "Notification sent successfully",
 		}, nil
 	},
-		forge_router.WithSummary("Send notification to user"),
-		forge_router.WithDescription("Send a notification to a specific user via SSE"),
-		forge_router.WithTags("notifications", "api"),
+		forgerouter.WithSummary("Send notification to user"),
+		forgerouter.WithDescription("Send a notification to a specific user via SSE"),
+		forgerouter.WithTags("notifications", "api"),
 	)
 
 	// WebSocket endpoint for system-wide broadcasts
-	router.WebSocket("/ws/system", func(conn *forge_router.WSConnection, message struct {
+	router.WebSocket("/ws/system", func(conn *forgerouter.WSConnection, message struct {
 		Type    string      `json:"type" description:"Message type"`
 		Payload interface{} `json:"payload" description:"Message payload"`
 	}) (*struct {
@@ -211,7 +251,7 @@ func main() {
 		log.Printf("System message: %s", message.Type)
 
 		// Broadcast to all connected clients
-		broadcastMsg := forge_router.WSMessage{
+		broadcastMsg := forgerouter.WSMessage{
 			Type:    "system_broadcast",
 			Payload: message.Payload,
 		}
@@ -226,13 +266,13 @@ func main() {
 			Timestamp:    time.Now(),
 		}, nil
 	},
-		forge_router.WithAsyncSummary("System-wide broadcasts"),
-		forge_router.WithAsyncDescription("WebSocket for system-wide message broadcasting"),
-		forge_router.WithAsyncTags("system", "broadcast", "websocket"),
+		forgerouter.WithAsyncSummary("System-wide broadcasts"),
+		forgerouter.WithAsyncDescription("WebSocket for system-wide message broadcasting"),
+		forgerouter.WithAsyncTags("system", "broadcast", "websocket"),
 	)
 
 	// API endpoint for system broadcasts
-	router.OpinionatedPOST("/api/system/broadcast", func(ctx *forge_router.FastContext, input struct {
+	router.OpinionatedPOST("/api/system/broadcast", func(ctx *forgerouter.FastContext, input struct {
 		Type    string      `json:"type" description:"Broadcast type"`
 		Message interface{} `json:"message" description:"Broadcast message"`
 	}) (*struct {
@@ -240,14 +280,14 @@ func main() {
 		Receivers int  `json:"receivers"`
 	}, error) {
 		// Broadcast via WebSocket
-		wsMessage := forge_router.WSMessage{
+		wsMessage := forgerouter.WSMessage{
 			Type:    "system_broadcast",
 			Payload: input.Message,
 		}
 		router.ConnectionManager().BroadcastWS(wsMessage)
 
 		// Broadcast via SSE
-		sseMessage := forge_router.SSEMessage{
+		sseMessage := forgerouter.SSEMessage{
 			Event: "system_broadcast",
 			Data: map[string]interface{}{
 				"type":    input.Type,
@@ -268,13 +308,13 @@ func main() {
 			Receivers: receivers,
 		}, nil
 	},
-		forge_router.WithSummary("System-wide broadcast"),
-		forge_router.WithDescription("Send a message to all connected clients via WebSocket and SSE"),
-		forge_router.WithTags("system", "broadcast", "api"),
+		forgerouter.WithSummary("System-wide broadcast"),
+		forgerouter.WithDescription("Send a message to all connected clients via WebSocket and SSE"),
+		forgerouter.WithTags("system", "broadcast", "api"),
 	)
 
 	// Health check endpoint
-	router.OpinionatedGET("/health", func(ctx *forge_router.FastContext, input struct{}) (*struct {
+	router.OpinionatedGET("/health", func(ctx *forgerouter.FastContext, input struct{}) (*struct {
 		Status      string    `json:"status"`
 		Timestamp   time.Time `json:"timestamp"`
 		Connections struct {
@@ -304,7 +344,7 @@ func main() {
 				SSE:       sseCount,
 			},
 		}, nil
-	}, forge_router.WithSummary("Health check with connection stats"))
+	}, forgerouter.WithSummary("Health check with connection stats"))
 
 	// Serve the beautiful new interface
 	router.GET("/", func(w http.ResponseWriter, r *http.Request) {

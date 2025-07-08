@@ -1,4 +1,4 @@
-package forge_router
+package forgerouter
 
 import (
 	"bytes"
@@ -487,7 +487,7 @@ func TestFullRESTAPI(t *testing.T) {
 
 	// Test OpenAPI documentation
 	t.Run("OpenAPI Documentation", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/openapi", nil)
+		req := httptest.NewRequest("GET", "/openapi.json", nil)
 		w := httptest.NewRecorder()
 
 		router.ServeHTTP(w, req)
@@ -501,8 +501,8 @@ func TestFullRESTAPI(t *testing.T) {
 			t.Fatalf("Failed to decode OpenAPI spec: %v", err)
 		}
 
-		if spec["openapi"] != "3.0.0" {
-			t.Errorf("Expected OpenAPI version 3.0.0, got %v", spec["openapi"])
+		if spec["openapi"] != "3.1.1" {
+			t.Errorf("Expected OpenAPI version 3.1.1, got %v", spec["openapi"])
 		}
 
 		// Check that user endpoints are documented

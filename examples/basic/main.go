@@ -7,7 +7,8 @@ import (
 	"strings"
 	"time"
 
-	forgerouter2 "github.com/xraph/forgerouter"
+	"github.com/xraph/forgerouter"
+	"github.com/xraph/forgerouter/middleware"
 )
 
 // User domain models
@@ -149,7 +150,7 @@ var users = make(map[string]*User)
 var posts = make(map[string]*Post)
 
 // Handler implementations
-func GetUserHandler(ctx *forgerouter2.FastContext, input GetUserInput) (*GetUserOutput, error) {
+func GetUserHandler(ctx *forgerouter.FastContext, input GetUserInput) (*GetUserOutput, error) {
 	user, exists := users[input.ID]
 	if !exists {
 		return nil, errors.New("user not found")
@@ -158,10 +159,10 @@ func GetUserHandler(ctx *forgerouter2.FastContext, input GetUserInput) (*GetUser
 	return &GetUserOutput{User: user}, nil
 }
 
-func CreateUserHandler(ctx *forgerouter2.FastContext, input CreateUserInput) (*CreateUserOutput, error) {
+func CreateUserHandler(ctx *forgerouter.FastContext, input CreateUserInput) (*CreateUserOutput, error) {
 	// Check authorization
 	if input.AuthToken != "Bearer valid-token" {
-		return nil, forgerouter2.Unauthorized("Authorization required for user deletion")
+		return nil, forgerouter.Unauthorized("Authorization required for user deletion")
 	}
 
 	// Create new user
@@ -181,7 +182,7 @@ func CreateUserHandler(ctx *forgerouter2.FastContext, input CreateUserInput) (*C
 	}, nil
 }
 
-func UpdateUserHandler(ctx *forgerouter2.FastContext, input UpdateUserInput) (*UpdateUserOutput, error) {
+func UpdateUserHandler(ctx *forgerouter.FastContext, input UpdateUserInput) (*UpdateUserOutput, error) {
 	user, exists := users[input.ID]
 	if !exists {
 		return nil, errors.New("user not found")
@@ -202,7 +203,7 @@ func UpdateUserHandler(ctx *forgerouter2.FastContext, input UpdateUserInput) (*U
 	}, nil
 }
 
-func ListUsersHandler(ctx *forgerouter2.FastContext, input ListUsersInput) (*ListUsersOutput, error) {
+func ListUsersHandler(ctx *forgerouter.FastContext, input ListUsersInput) (*ListUsersOutput, error) {
 	// Convert map to slice
 	userList := make([]User, 0, len(users))
 	for _, user := range users {
@@ -231,7 +232,7 @@ func ListUsersHandler(ctx *forgerouter2.FastContext, input ListUsersInput) (*Lis
 	}, nil
 }
 
-func DeleteUserHandler(ctx *forgerouter2.FastContext, input DeleteUserInput) (*DeleteUserOutput, error) {
+func DeleteUserHandler(ctx *forgerouter.FastContext, input DeleteUserInput) (*DeleteUserOutput, error) {
 	_, exists := users[input.ID]
 	if !exists {
 		return nil, errors.New("user not found")
@@ -245,7 +246,7 @@ func DeleteUserHandler(ctx *forgerouter2.FastContext, input DeleteUserInput) (*D
 	}, nil
 }
 
-func GetUserPostsHandler(ctx *forgerouter2.FastContext, input GetUserPostsInput) (*GetUserPostsOutput, error) {
+func GetUserPostsHandler(ctx *forgerouter.FastContext, input GetUserPostsInput) (*GetUserPostsOutput, error) {
 	// Filter posts by user ID
 	userPosts := make([]Post, 0)
 	for _, post := range posts {
@@ -260,7 +261,7 @@ func GetUserPostsHandler(ctx *forgerouter2.FastContext, input GetUserPostsInput)
 	}, nil
 }
 
-func CreatePostHandler(ctx *forgerouter2.FastContext, input CreatePostInput) (*CreatePostOutput, error) {
+func CreatePostHandler(ctx *forgerouter.FastContext, input CreatePostInput) (*CreatePostOutput, error) {
 	// Verify user exists
 	_, exists := users[input.UserID]
 	if !exists {
@@ -283,7 +284,7 @@ func CreatePostHandler(ctx *forgerouter2.FastContext, input CreatePostInput) (*C
 	}, nil
 }
 
-func SearchHandler(ctx *forgerouter2.FastContext, input SearchInput) (*SearchOutput, error) {
+func SearchHandler(ctx *forgerouter.FastContext, input SearchInput) (*SearchOutput, error) {
 	start := time.Now()
 
 	result := &SearchOutput{}
@@ -313,7 +314,7 @@ func SearchHandler(ctx *forgerouter2.FastContext, input SearchInput) (*SearchOut
 }
 
 // Health check with minimal input/output
-func HealthCheckHandler(ctx *forgerouter2.FastContext, input struct{}) (*struct {
+func HealthCheckHandler(ctx *forgerouter.FastContext, input struct{}) (*struct {
 	Status    string    `json:"status"`
 	Timestamp time.Time `json:"timestamp"`
 	Version   string    `json:"version"`
@@ -330,14 +331,14 @@ func HealthCheckHandler(ctx *forgerouter2.FastContext, input struct{}) (*struct 
 }
 
 func main() {
-	router := forgerouter2.NewRouter()
+	router := forgerouter.NewRouter()
 
 	// Enable OpenAPI documentation
 	router.EnableOpenAPI()
 
 	// Global middleware
-	router.Use(forgerouter2.Logger)
-	router.Use(forgerouter2.Recoverer)
+	router.Use(middleware.Logger)
+	router.Use(middleware.Recoverer)
 
 	// Create some sample data
 	users["user_1"] = &User{
@@ -358,64 +359,64 @@ func main() {
 
 	// Health endpoint
 	router.OpinionatedGET("/health", HealthCheckHandler,
-		forgerouter2.WithSummary("Health Check"),
-		forgerouter2.WithDescription("Returns the health status of the API"),
-		forgerouter2.WithTags("system"))
+		forgerouter.WithSummary("Health Check"),
+		forgerouter.WithDescription("Returns the health status of the API"),
+		forgerouter.WithTags("system"))
 
 	// Search endpoint
 	router.OpinionatedGET("/search", SearchHandler,
-		forgerouter2.WithSummary("Search"),
-		forgerouter2.WithDescription("Search across users and posts"),
-		forgerouter2.WithTags("search"))
+		forgerouter.WithSummary("Search"),
+		forgerouter.WithDescription("Search across users and posts"),
+		forgerouter.WithTags("search"))
 
 	// User management API
-	router.Route("/api/v1", func(r forgerouter2.Router) {
-		r.Route("/users", func(r forgerouter2.Router) {
+	router.Route("/api/v1", func(r forgerouter.Router) {
+		r.Route("/users", func(r forgerouter.Router) {
 			// List users
 			r.OpinionatedGET("/", ListUsersHandler,
-				forgerouter2.WithSummary("List Users"),
-				forgerouter2.WithDescription("Get paginated list of users with optional search"),
-				forgerouter2.WithTags("users"))
+				forgerouter.WithSummary("List Users"),
+				forgerouter.WithDescription("Get paginated list of users with optional search"),
+				forgerouter.WithTags("users"))
 
 			// Create user
 			r.OpinionatedPOST("/", CreateUserHandler,
-				forgerouter2.WithSummary("Create User"),
-				forgerouter2.WithDescription("Create a new user account"),
-				forgerouter2.WithTags("users"))
+				forgerouter.WithSummary("Create User"),
+				forgerouter.WithDescription("Create a new user account"),
+				forgerouter.WithTags("users"))
 
 			// User-specific routes
-			r.Route("/{id}", func(r forgerouter2.Router) {
+			r.Route("/{id}", func(r forgerouter.Router) {
 				// Get user
 				r.OpinionatedGET("/", GetUserHandler,
-					forgerouter2.WithSummary("Get User"),
-					forgerouter2.WithDescription("Get user details by ID"),
-					forgerouter2.WithTags("users"))
+					forgerouter.WithSummary("Get User"),
+					forgerouter.WithDescription("Get user details by ID"),
+					forgerouter.WithTags("users"))
 
 				// Update user
 				r.OpinionatedPUT("/", UpdateUserHandler,
-					forgerouter2.WithSummary("Update User"),
-					forgerouter2.WithDescription("Update user information"),
-					forgerouter2.WithTags("users"))
+					forgerouter.WithSummary("Update User"),
+					forgerouter.WithDescription("Update user information"),
+					forgerouter.WithTags("users"))
 
 				// Delete user
 				r.OpinionatedDELETE("/", DeleteUserHandler,
-					forgerouter2.WithSummary("Delete User"),
-					forgerouter2.WithDescription("Delete user account"),
-					forgerouter2.WithTags("users"))
+					forgerouter.WithSummary("Delete User"),
+					forgerouter.WithDescription("Delete user account"),
+					forgerouter.WithTags("users"))
 
 				// User posts
-				r.Route("/posts", func(r forgerouter2.Router) {
+				r.Route("/posts", func(r forgerouter.Router) {
 					// Get user's posts
 					r.OpinionatedGET("/", GetUserPostsHandler,
-						forgerouter2.WithSummary("Get User Posts"),
-						forgerouter2.WithDescription("Get all posts by a specific user"),
-						forgerouter2.WithTags("users", "posts"))
+						forgerouter.WithSummary("Get User Posts"),
+						forgerouter.WithDescription("Get all posts by a specific user"),
+						forgerouter.WithTags("users", "posts"))
 
 					// Create post for user
 					r.OpinionatedPOST("/", CreatePostHandler,
-						forgerouter2.WithSummary("Create Post"),
-						forgerouter2.WithDescription("Create a new post for the user"),
-						forgerouter2.WithTags("users", "posts"))
+						forgerouter.WithSummary("Create Post"),
+						forgerouter.WithDescription("Create a new post for the user"),
+						forgerouter.WithTags("users", "posts"))
 				})
 			})
 		})

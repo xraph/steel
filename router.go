@@ -1,4 +1,4 @@
-package forge_router
+package forgerouter
 
 import (
 	"context"
@@ -10,22 +10,26 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 // FastRouter is a high-performance HTTP router with OpenAPI support
 type FastRouter struct {
-	trees             map[string]*node
-	middleware        []MiddlewareFunc
-	pool              sync.Pool
-	notFoundHandler   http.Handler
-	methodNotAllowed  http.Handler
-	options           RouterOptions
-	openAPISpec       *OpenAPISpec
-	asyncAPISpec      *AsyncAPISpec
-	handlers          map[string]*HandlerInfo
-	wsHandlers        map[string]*WSHandlerInfo
-	sseHandlers       map[string]*SSEHandlerInfo
-	connectionManager *ConnectionManager
+	trees                 map[string]*node
+	middleware            []MiddlewareFunc
+	pool                  sync.Pool
+	notFoundHandler       http.Handler
+	methodNotAllowed      http.Handler
+	options               RouterOptions
+	openAPISpec           *OpenAPISpec
+	asyncAPISpec          *AsyncAPISpec
+	handlers              map[string]*HandlerInfo
+	wsHandlers            map[string]*WSHandlerInfo
+	sseHandlers           map[string]*SSEHandlerInfo
+	connectionManager     *ConnectionManager
+	securityProvider      SecurityProvider
+	globalSecurity        []OpenAPISecurityRequirement
+	opinionatedMiddleware *MiddlewareChain
 }
 
 // RouterOptions holds router configuration
@@ -44,39 +48,76 @@ type OpinionatedHandler[TInput any, TOutput any] func(ctx *FastContext, input TI
 
 // HandlerInfo stores metadata about registered handlers
 type HandlerInfo struct {
-	Method      string
-	Path        string
-	Summary     string
-	Description string
-	Tags        []string
-	InputType   reflect.Type
-	OutputType  reflect.Type
-	Handler     interface{}
+	Method               string
+	Path                 string
+	Summary              string
+	Description          string
+	Tags                 []string
+	InputType            reflect.Type
+	OutputType           reflect.Type
+	Handler              interface{}
+	SecurityRequirements []OpenAPISecurityRequirement
+	Deprecated           bool
+	OperationID          string
 }
 
-// OpenAPI Schema Types
+// OpenAPISpec OpenAPI Schema Types
 type OpenAPISpec struct {
-	OpenAPI    string                 `json:"openapi"`
-	Info       OpenAPIInfo            `json:"info"`
-	Paths      map[string]OpenAPIPath `json:"paths"`
-	Components OpenAPIComponents      `json:"components"`
+	OpenAPI           string                       `json:"openapi"`
+	Info              OpenAPIInfo                  `json:"info"`
+	JSONSchemaDialect string                       `json:"jsonSchemaDialect,omitempty"`
+	Servers           []OpenAPIServer              `json:"servers,omitempty"`
+	Paths             map[string]OpenAPIPath       `json:"paths,omitempty"`
+	Webhooks          map[string]OpenAPIPath       `json:"webhooks,omitempty"`
+	Components        OpenAPIComponents            `json:"components,omitempty"`
+	Security          []OpenAPISecurityRequirement `json:"security,omitempty"`
+	Tags              []OpenAPITag                 `json:"tags,omitempty"`
+	ExternalDocs      *OpenAPIExternalDocs         `json:"externalDocs,omitempty"`
 }
 
 type OpenAPIInfo struct {
-	Title       string `json:"title"`
-	Version     string `json:"version"`
-	Description string `json:"description"`
+	Title          string                 `json:"title"`
+	Description    string                 `json:"description,omitempty"`
+	TermsOfService string                 `json:"termsOfService,omitempty"`
+	Contact        *OpenAPIContact        `json:"contact,omitempty"`
+	License        *OpenAPILicense        `json:"license,omitempty"`
+	Version        string                 `json:"version"`
+	Summary        string                 `json:"summary,omitempty"` // New in 3.1
+	Extensions     map[string]interface{} `json:"-"`
+}
+
+type OpenAPIContact struct {
+	Name  string `json:"name,omitempty"`
+	URL   string `json:"url,omitempty"`
+	Email string `json:"email,omitempty"`
+}
+
+type OpenAPILicense struct {
+	Name       string `json:"name"`
+	Identifier string `json:"identifier,omitempty"` // New in 3.1 (alternative to url)
+	URL        string `json:"url,omitempty"`
+}
+
+type OpenAPITag struct {
+	Name         string               `json:"name"`
+	Description  string               `json:"description,omitempty"`
+	ExternalDocs *OpenAPIExternalDocs `json:"externalDocs,omitempty"`
 }
 
 type OpenAPIPath map[string]OpenAPIOperation
 
 type OpenAPIOperation struct {
-	Summary     string                     `json:"summary,omitempty"`
-	Description string                     `json:"description,omitempty"`
-	Tags        []string                   `json:"tags,omitempty"`
-	Parameters  []OpenAPIParameter         `json:"parameters,omitempty"`
-	RequestBody *OpenAPIRequestBody        `json:"requestBody,omitempty"`
-	Responses   map[string]OpenAPIResponse `json:"responses"`
+	Summary      string                       `json:"summary,omitempty"`
+	Description  string                       `json:"description,omitempty"`
+	Tags         []string                     `json:"tags,omitempty"`
+	Parameters   []OpenAPIParameter           `json:"parameters,omitempty"`
+	RequestBody  *OpenAPIRequestBody          `json:"requestBody,omitempty"`
+	Responses    map[string]OpenAPIResponse   `json:"responses"`
+	Security     []OpenAPISecurityRequirement `json:"security,omitempty"`
+	Deprecated   bool                         `json:"deprecated,omitempty"`
+	OperationID  string                       `json:"operationId,omitempty"`
+	ExternalDocs *OpenAPIExternalDocs         `json:"externalDocs,omitempty"`
+	Servers      []OpenAPIServer              `json:"servers,omitempty"`
 }
 
 type OpenAPIParameter struct {
@@ -103,37 +144,156 @@ type OpenAPIMediaType struct {
 }
 
 type OpenAPISchema struct {
-	Type                 string                   `json:"type,omitempty"`
-	Format               string                   `json:"format,omitempty"`
-	Description          string                   `json:"description,omitempty"`
+	// Core JSON Schema keywords
+	Type        interface{}   `json:"type,omitempty"` // Can be string or array of strings in 3.1
+	Title       string        `json:"title,omitempty"`
+	Description string        `json:"description,omitempty"`
+	Default     interface{}   `json:"default,omitempty"`
+	Examples    []interface{} `json:"examples,omitempty"` // Changed from example in 3.0
+	Const       interface{}   `json:"const,omitempty"`    // New in 3.1
+	Enum        []interface{} `json:"enum,omitempty"`
+
+	// Object validation
 	Properties           map[string]OpenAPISchema `json:"properties,omitempty"`
 	Required             []string                 `json:"required,omitempty"`
-	Items                *OpenAPISchema           `json:"items,omitempty"`
-	Ref                  string                   `json:"$ref,omitempty"`
-	AdditionalProperties *OpenAPISchema           `json:"additionalProperties,omitempty"`
+	AdditionalProperties interface{}              `json:"additionalProperties,omitempty"` // Can be bool or schema
+	PatternProperties    map[string]OpenAPISchema `json:"patternProperties,omitempty"`    // New in 3.1
+	PropertyNames        *OpenAPISchema           `json:"propertyNames,omitempty"`        // New in 3.1
+	MinProperties        *int                     `json:"minProperties,omitempty"`
+	MaxProperties        *int                     `json:"maxProperties,omitempty"`
 
-	// Validation fields
-	Example   interface{} `json:"example,omitempty"`
-	Default   interface{} `json:"default,omitempty"`
-	Minimum   *string     `json:"minimum,omitempty"`
-	Maximum   *string     `json:"maximum,omitempty"`
-	Pattern   string      `json:"pattern,omitempty"`
-	MinLength *int        `json:"minLength,omitempty"`
-	MaxLength *int        `json:"maxLength,omitempty"`
-	MinItems  *int        `json:"minItems,omitempty"`
-	MaxItems  *int        `json:"maxItems,omitempty"`
+	// Array validation
+	Items            interface{}     `json:"items,omitempty"`            // Can be schema or array of schemas
+	PrefixItems      []OpenAPISchema `json:"prefixItems,omitempty"`      // New in 3.1 (replaces items array)
+	UnevaluatedItems interface{}     `json:"unevaluatedItems,omitempty"` // New in 3.1
+	Contains         *OpenAPISchema  `json:"contains,omitempty"`         // New in 3.1
+	MinContains      *int            `json:"minContains,omitempty"`      // New in 3.1
+	MaxContains      *int            `json:"maxContains,omitempty"`      // New in 3.1
+	MinItems         *int            `json:"minItems,omitempty"`
+	MaxItems         *int            `json:"maxItems,omitempty"`
+	UniqueItems      *bool           `json:"uniqueItems,omitempty"`
 
-	// Enum support
-	Enum []interface{} `json:"enum,omitempty"`
+	// String validation
+	MinLength        *int           `json:"minLength,omitempty"`
+	MaxLength        *int           `json:"maxLength,omitempty"`
+	Pattern          string         `json:"pattern,omitempty"`
+	Format           string         `json:"format,omitempty"`
+	ContentEncoding  string         `json:"contentEncoding,omitempty"`  // New in 3.1
+	ContentMediaType string         `json:"contentMediaType,omitempty"` // New in 3.1
+	ContentSchema    *OpenAPISchema `json:"contentSchema,omitempty"`    // New in 3.1
 
-	// For numbers
-	MultipleOf       *float64 `json:"multipleOf,omitempty"`
-	ExclusiveMinimum *bool    `json:"exclusiveMinimum,omitempty"`
-	ExclusiveMaximum *bool    `json:"exclusiveMaximum,omitempty"`
+	// Numeric validation
+	Minimum          *float64    `json:"minimum,omitempty"`
+	Maximum          *float64    `json:"maximum,omitempty"`
+	ExclusiveMinimum interface{} `json:"exclusiveMinimum,omitempty"` // Can be bool or number in 3.1
+	ExclusiveMaximum interface{} `json:"exclusiveMaximum,omitempty"` // Can be bool or number in 3.1
+	MultipleOf       *float64    `json:"multipleOf,omitempty"`
+
+	// Composition keywords
+	AllOf []OpenAPISchema `json:"allOf,omitempty"`
+	AnyOf []OpenAPISchema `json:"anyOf,omitempty"`
+	OneOf []OpenAPISchema `json:"oneOf,omitempty"`
+	Not   *OpenAPISchema  `json:"not,omitempty"`
+
+	// Conditional keywords (new in 3.1)
+	If                *OpenAPISchema           `json:"if,omitempty"`
+	Then              *OpenAPISchema           `json:"then,omitempty"`
+	Else              *OpenAPISchema           `json:"else,omitempty"`
+	DependentSchemas  map[string]OpenAPISchema `json:"dependentSchemas,omitempty"`
+	DependentRequired map[string][]string      `json:"dependentRequired,omitempty"`
+
+	// Reference and evaluation
+	Ref           string                   `json:"$ref,omitempty"`
+	DynamicRef    string                   `json:"$dynamicRef,omitempty"`    // New in 3.1
+	DynamicAnchor string                   `json:"$dynamicAnchor,omitempty"` // New in 3.1
+	Defs          map[string]OpenAPISchema `json:"$defs,omitempty"`          // New in 3.1 (preferred over definitions)
+
+	// Unevaluated keywords (new in 3.1)
+	UnevaluatedProperties interface{} `json:"unevaluatedProperties,omitempty"`
+
+	// OpenAPI specific extensions (not part of JSON Schema)
+	Discriminator *OpenAPIDiscriminator `json:"discriminator,omitempty"`
+	XML           *OpenAPIXML           `json:"xml,omitempty"`
+	ExternalDocs  *OpenAPIExternalDocs  `json:"externalDocs,omitempty"`
+
+	// Deprecated OpenAPI 3.0 fields (maintained for backward compatibility)
+	Nullable *bool       `json:"nullable,omitempty"` // Deprecated in 3.1, use type array
+	Example  interface{} `json:"example,omitempty"`  // Deprecated in 3.1, use examples
+
+	// Meta-schema
+	Schema  string `json:"$schema,omitempty"`  // JSON Schema dialect
+	ID      string `json:"$id,omitempty"`      // Schema identifier
+	Anchor  string `json:"$anchor,omitempty"`  // Schema anchor
+	Comment string `json:"$comment,omitempty"` // Schema comment
+}
+
+type OpenAPIDiscriminator struct {
+	PropertyName string            `json:"propertyName"`
+	Mapping      map[string]string `json:"mapping,omitempty"`
+}
+
+type OpenAPIXML struct {
+	Name      string `json:"name,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
+	Prefix    string `json:"prefix,omitempty"`
+	Attribute bool   `json:"attribute,omitempty"`
+	Wrapped   bool   `json:"wrapped,omitempty"`
 }
 
 type OpenAPIComponents struct {
-	Schemas map[string]OpenAPISchema `json:"schemas"`
+	Schemas         map[string]OpenAPISchema         `json:"schemas,omitempty"`
+	SecuritySchemes map[string]OpenAPISecurityScheme `json:"securitySchemes,omitempty"`
+	Responses       map[string]OpenAPIResponse       `json:"responses,omitempty"`
+	Parameters      map[string]OpenAPIParameter      `json:"parameters,omitempty"`
+	RequestBodies   map[string]OpenAPIRequestBody    `json:"requestBodies,omitempty"`
+	Headers         map[string]OpenAPIHeader         `json:"headers,omitempty"`
+	Examples        map[string]OpenAPIExample        `json:"examples,omitempty"`
+	Links           map[string]OpenAPILink           `json:"links,omitempty"`
+	Callbacks       map[string]OpenAPICallback       `json:"callbacks,omitempty"`
+}
+
+type OpenAPIHeader struct {
+	Description string                    `json:"description,omitempty"`
+	Required    bool                      `json:"required,omitempty"`
+	Deprecated  bool                      `json:"deprecated,omitempty"`
+	Schema      OpenAPISchema             `json:"schema,omitempty"`
+	Example     interface{}               `json:"example,omitempty"`
+	Examples    map[string]OpenAPIExample `json:"examples,omitempty"`
+}
+
+type OpenAPIExample struct {
+	Summary       string      `json:"summary,omitempty"`
+	Description   string      `json:"description,omitempty"`
+	Value         interface{} `json:"value,omitempty"`
+	ExternalValue string      `json:"externalValue,omitempty"`
+}
+
+type OpenAPILink struct {
+	OperationRef string                 `json:"operationRef,omitempty"`
+	OperationID  string                 `json:"operationId,omitempty"`
+	Parameters   map[string]interface{} `json:"parameters,omitempty"`
+	RequestBody  interface{}            `json:"requestBody,omitempty"`
+	Description  string                 `json:"description,omitempty"`
+	Server       *OpenAPIServer         `json:"server,omitempty"`
+}
+
+type OpenAPICallback map[string]OpenAPIPath
+
+type OpenAPIExternalDocs struct {
+	Description string `json:"description,omitempty"`
+	URL         string `json:"url"`
+}
+
+type OpenAPIServer struct {
+	URL         string                           `json:"url"`
+	Description string                           `json:"description,omitempty"`
+	Variables   map[string]OpenAPIServerVariable `json:"variables,omitempty"`
+}
+
+type OpenAPIServerVariable struct {
+	Enum        []string `json:"enum,omitempty"`
+	Default     string   `json:"default"`
+	Description string   `json:"description,omitempty"`
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
@@ -191,7 +351,7 @@ func NewRouter() *FastRouter {
 			OpenAPIDescription:     "API documentation generated by FastRouter",
 		},
 		openAPISpec: &OpenAPISpec{
-			OpenAPI: "3.0.0",
+			OpenAPI: "3.1.1",
 			Info: OpenAPIInfo{
 				Title:       "FastRouter API",
 				Version:     "1.0.0",
@@ -199,19 +359,26 @@ func NewRouter() *FastRouter {
 			},
 			Paths: make(map[string]OpenAPIPath),
 			Components: OpenAPIComponents{
-				Schemas: make(map[string]OpenAPISchema),
+				Schemas:         make(map[string]OpenAPISchema),
+				SecuritySchemes: make(map[string]OpenAPISecurityScheme),
 			},
 		},
 		handlers:          make(map[string]*HandlerInfo),
 		wsHandlers:        make(map[string]*WSHandlerInfo),
 		sseHandlers:       make(map[string]*SSEHandlerInfo),
 		connectionManager: NewConnectionManager(),
+		securityProvider:  NewDefaultSecurityProvider(),
+		globalSecurity:    make([]OpenAPISecurityRequirement, 0),
 	}
 }
 
 // Router interface for consistent API
 type Router interface {
 	Use(middleware ...MiddlewareFunc)
+
+	UseOpinionated(middleware ...OpinionatedMiddleware)
+	UseOpinionatedIf(condition bool, middleware ...OpinionatedMiddleware)
+
 	Group() Router
 	GroupFunc(fn func(r Router)) Router
 	Route(pattern string, fn func(r Router)) Router
@@ -264,7 +431,7 @@ func WithTags(tags ...string) HandlerOption {
 // Ensure FastRouter implements Router interface
 var _ Router = (*FastRouter)(nil)
 
-// Standard HTTP method handlers
+// GET Standard HTTP method handlers
 func (r *FastRouter) GET(pattern string, handler HandlerFunc) {
 	r.addRoute("GET", pattern, handler)
 }
@@ -303,25 +470,289 @@ func (r *FastRouter) HandleFunc(method, pattern string, handler http.HandlerFunc
 	})
 }
 
-// Opinionated handlers with OpenAPI generation
+// OpinionatedGET Opinionated handlers with OpenAPI generation
 func (r *FastRouter) OpinionatedGET(pattern string, handler interface{}, opts ...HandlerOption) {
-	r.registerOpinionatedHandler("GET", pattern, handler, opts...)
+	r.registerOpinionatedHandlerWithMiddleware("GET", pattern, handler, opts...)
 }
 
 func (r *FastRouter) OpinionatedPOST(pattern string, handler interface{}, opts ...HandlerOption) {
-	r.registerOpinionatedHandler("POST", pattern, handler, opts...)
+	r.registerOpinionatedHandlerWithMiddleware("POST", pattern, handler, opts...)
 }
 
 func (r *FastRouter) OpinionatedPUT(pattern string, handler interface{}, opts ...HandlerOption) {
-	r.registerOpinionatedHandler("PUT", pattern, handler, opts...)
+	r.registerOpinionatedHandlerWithMiddleware("PUT", pattern, handler, opts...)
 }
 
 func (r *FastRouter) OpinionatedDELETE(pattern string, handler interface{}, opts ...HandlerOption) {
-	r.registerOpinionatedHandler("DELETE", pattern, handler, opts...)
+	r.registerOpinionatedHandlerWithMiddleware("DELETE", pattern, handler, opts...)
 }
 
 func (r *FastRouter) OpinionatedPATCH(pattern string, handler interface{}, opts ...HandlerOption) {
-	r.registerOpinionatedHandler("PATCH", pattern, handler, opts...)
+	r.registerOpinionatedHandlerWithMiddleware("PATCH", pattern, handler, opts...)
+}
+
+func (r *FastRouter) registerOpinionatedHandlerWithMiddleware(method, pattern string, handler interface{}, opts ...HandlerOption) {
+	handlerType := reflect.TypeOf(handler)
+	if handlerType.Kind() != reflect.Func {
+		panic("handler must be a function")
+	}
+
+	if handlerType.NumIn() != 2 || handlerType.NumOut() != 2 {
+		panic("handler must have signature func(*FastContext, InputType) (*OutputType, error)")
+	}
+
+	inputType := handlerType.In(1)
+	outputType := handlerType.Out(0)
+
+	// Remove pointer from output type for reflection
+	if outputType.Kind() == reflect.Ptr {
+		outputType = outputType.Elem()
+	}
+
+	// Create handler info
+	info := &HandlerInfo{
+		Method:     method,
+		Path:       pattern,
+		InputType:  inputType,
+		OutputType: outputType,
+		Handler:    handler,
+	}
+
+	// Apply options
+	for _, opt := range opts {
+		opt(info)
+	}
+
+	// Register in handlers map
+	key := method + " " + pattern
+	r.handlers[key] = info
+
+	// Generate OpenAPI spec for this handler with middleware enhancements
+	r.generateOpenAPIForHandlerWithMiddleware(info)
+
+	// Create wrapper with middleware support
+	wrapper := r.createOpinionatedWrapperWithMiddleware(handler, inputType, outputType, info)
+	r.addRoute(method, pattern, wrapper)
+}
+
+func (r *FastRouter) generateOpenAPIForHandlerWithMiddleware(info *HandlerInfo) {
+	// Generate base operation
+	operation := r.generateBaseOperation(info)
+
+	// Add middleware enhancements
+	if r.opinionatedMiddleware != nil {
+		enhancements := r.opinionatedMiddleware.GetOpenAPIEnhancements()
+
+		// Add security requirements
+		if len(enhancements.SecurityRequirements) > 0 {
+			if operation.Security == nil {
+				operation.Security = make([]OpenAPISecurityRequirement, 0)
+			}
+			operation.Security = append(operation.Security, enhancements.SecurityRequirements...)
+		}
+
+		// Add headers
+		for _, header := range enhancements.Headers {
+			operation.Parameters = append(operation.Parameters, header)
+		}
+
+		// Add responses
+		for code, response := range enhancements.Responses {
+			operation.Responses[code] = response
+		}
+
+		// Add tags
+		if len(enhancements.Tags) > 0 {
+			operation.Tags = append(operation.Tags, enhancements.Tags...)
+		}
+	}
+
+	// Add security requirements from handler
+	if len(info.SecurityRequirements) > 0 {
+		if operation.Security == nil {
+			operation.Security = make([]OpenAPISecurityRequirement, 0)
+		}
+		operation.Security = append(operation.Security, info.SecurityRequirements...)
+	} else if len(r.globalSecurity) > 0 {
+		// Apply global security if no specific requirements
+		if operation.Security == nil {
+			operation.Security = make([]OpenAPISecurityRequirement, 0)
+		}
+		operation.Security = append(operation.Security, r.globalSecurity...)
+	}
+
+	// Add to OpenAPI spec
+	openAPIPath := r.convertToOpenAPIPath(info.Path)
+	if r.openAPISpec.Paths[openAPIPath] == nil {
+		r.openAPISpec.Paths[openAPIPath] = make(OpenAPIPath)
+	}
+	r.openAPISpec.Paths[openAPIPath][strings.ToLower(info.Method)] = operation
+}
+
+func (r *FastRouter) createOpinionatedWrapperWithMiddleware(handler interface{}, inputType, outputType reflect.Type, handlerInfo *HandlerInfo) HandlerFunc {
+	handlerValue := reflect.ValueOf(handler)
+
+	return func(w http.ResponseWriter, req *http.Request) {
+		// Get parameters from context
+		params := ParamsFromContext(req.Context())
+
+		// Create FastContext
+		fastCtx := &FastContext{
+			Request:  req,
+			Response: w,
+			router:   r,
+			params:   params,
+		}
+
+		// Create MiddlewareContext
+		ctx := &MiddlewareContext{
+			FastContext:     fastCtx,
+			StartTime:       time.Now(),
+			RequestID:       req.Header.Get("X-Request-ID"),
+			Metadata:        make(map[string]interface{}),
+			HandlerInfo:     handlerInfo,
+			Headers:         make(map[string]string),
+			MiddlewareIndex: 0,
+		}
+
+		// Initialize input/output values
+		ctx.InputValue = reflect.New(inputType)
+		ctx.OutputValue = reflect.New(outputType)
+
+		// Create input instance
+		input := ctx.InputValue.Interface()
+
+		// Define the final handler
+		finalHandler := func() error {
+			// Bind parameters to input struct
+			if err := r.bindParameters(fastCtx, input); err != nil {
+				var apiErr APIError
+				if strings.Contains(err.Error(), "body:") &&
+					(strings.Contains(err.Error(), "invalid character") ||
+						strings.Contains(err.Error(), "cannot unmarshal") ||
+						strings.Contains(err.Error(), "unexpected end of JSON input")) {
+					apiErr = BadRequest("Invalid JSON in request body", err.Error())
+				} else {
+					apiErr = UnprocessableEntity("Parameter binding failed",
+						NewFieldError("parameters", err.Error(), nil, "BINDING_ERROR"))
+				}
+
+				if httpErr, ok := apiErr.(*HTTPError); ok {
+					httpErr.Path = req.URL.Path
+					httpErr.RequestID = req.Header.Get("X-Request-ID")
+				}
+				if valErr, ok := apiErr.(*ValidationError); ok {
+					valErr.Path = req.URL.Path
+					valErr.RequestID = req.Header.Get("X-Request-ID")
+				}
+
+				ctx.Error = apiErr
+				return apiErr
+			}
+
+			// Call the handler
+			results := handlerValue.Call([]reflect.Value{
+				reflect.ValueOf(fastCtx),
+				reflect.ValueOf(input).Elem(),
+			})
+
+			// Handle results
+			output := results[0]
+			err := results[1]
+
+			// Store output in context
+			if !output.IsNil() {
+				ctx.OutputValue = output
+			}
+
+			// Check for errors
+			if !err.IsNil() {
+				errVal := err.Interface().(error)
+				ctx.Error = errVal
+				return errVal
+			}
+
+			// This line was removed to fix the bug
+			// ctx.Processed = true
+
+			return nil
+		}
+
+		// Execute middleware chain
+		var chainErr error
+		if r.opinionatedMiddleware != nil {
+			chainErr = r.opinionatedMiddleware.Process(ctx, finalHandler)
+		} else {
+			chainErr = finalHandler()
+		}
+
+		// Handle final response
+		if ctx.Processed && chainErr == nil {
+			// Response was handled by middleware
+			return
+		}
+
+		if chainErr != nil {
+			// Handle errors
+			if apiErr, ok := chainErr.(APIError); ok {
+				r.writeErrorResponse(w, req, apiErr)
+				return
+			}
+
+			// Handle standard Go errors
+			internalErr := InternalServerError("An unexpected error occurred")
+			internalErr.Path = req.URL.Path
+			internalErr.RequestID = req.Header.Get("X-Request-ID")
+			internalErr.Detail = chainErr.Error()
+			r.writeErrorResponse(w, req, internalErr)
+			return
+		}
+
+		// Apply any headers set by middleware
+		for key, value := range ctx.Headers {
+			w.Header().Set(key, value)
+		}
+
+		// Handle successful responses
+		if !ctx.OutputValue.IsNil() {
+			outputVal := ctx.OutputValue.Interface()
+
+			// Check if it's an APIResponse (custom status code)
+			if apiResp, ok := outputVal.(*APIResponse); ok {
+				// Set custom headers
+				for key, value := range apiResp.Headers {
+					w.Header().Set(key, value)
+				}
+
+				// Set status code
+				if ctx.StatusCode != 0 {
+					w.WriteHeader(ctx.StatusCode)
+				} else {
+					w.WriteHeader(apiResp.StatusCode)
+				}
+
+				// Write response body if data exists
+				if apiResp.Data != nil {
+					w.Header().Set("Content-Type", "application/json")
+					json.NewEncoder(w).Encode(apiResp.Data)
+				}
+				return
+			}
+
+			// Standard successful response
+			if ctx.StatusCode != 0 {
+				w.WriteHeader(ctx.StatusCode)
+			}
+			fastCtx.JSON(http.StatusOK, outputVal)
+		} else {
+			// No content response
+			if ctx.StatusCode != 0 {
+				w.WriteHeader(ctx.StatusCode)
+			} else {
+				w.WriteHeader(http.StatusNoContent)
+			}
+		}
+	}
 }
 
 // Register opinionated handler with reflection and OpenAPI generation
@@ -636,26 +1067,45 @@ func (r *FastRouter) generateOpenAPIForHandler(info *HandlerInfo) {
 		Tags:        info.Tags,
 		Parameters:  []OpenAPIParameter{},
 		Responses:   make(map[string]OpenAPIResponse),
+		Deprecated:  info.Deprecated,
+		OperationID: info.OperationID,
 	}
 
-	// Check if this handler has body parameters
+	// Add security requirements
+	if len(info.SecurityRequirements) > 0 {
+		operation.Security = info.SecurityRequirements
+	} else if len(r.globalSecurity) > 0 {
+		// Apply global security if no specific requirements
+		operation.Security = r.globalSecurity
+	}
+
+	// Validate security requirements if provider exists
+	if r.securityProvider != nil {
+		for _, req := range operation.Security {
+			if err := r.securityProvider.ValidateSecurityRequirement(req); err != nil {
+				// Log warning - in production you might want to use a proper logger
+				fmt.Printf("Warning: Invalid security requirement for %s %s: %v\n",
+					info.Method, info.Path, err)
+			}
+		}
+	}
+
+	// Generate parameters from input struct (existing logic)
 	hasBodyParams := false
 	var bodySchema OpenAPISchema
 
-	// Generate parameters from input struct
 	if info.InputType.Kind() == reflect.Struct {
-		// First pass: check for body parameters
+		// Check for body parameters
 		for i := 0; i < info.InputType.NumField(); i++ {
 			field := info.InputType.Field(i)
 			if bodyTag := field.Tag.Get("body"); bodyTag != "" {
 				hasBodyParams = true
-				// Create a schema for the entire struct when body params are present
 				bodySchema = r.typeToSchema(info.InputType)
 				break
 			}
 		}
 
-		// Second pass: handle other parameter types
+		// Handle other parameter types
 		for i := 0; i < info.InputType.NumField(); i++ {
 			field := info.InputType.Field(i)
 
@@ -731,10 +1181,10 @@ func (r *FastRouter) generateOpenAPIForHandler(info *HandlerInfo) {
 		}
 	}
 
-	// Add standard error responses
+	// Add standard error responses (including security-related ones)
 	r.addStandardErrorResponses(&operation, info.Method)
 
-	// Add to OpenAPI spec - ensure proper path format
+	// Add to OpenAPI spec
 	openAPIPath := r.convertToOpenAPIPath(info.Path)
 	if r.openAPISpec.Paths[openAPIPath] == nil {
 		r.openAPISpec.Paths[openAPIPath] = make(OpenAPIPath)
@@ -866,59 +1316,80 @@ func (r *FastRouter) addStandardErrorResponses(operation *OpenAPIOperation, meth
 
 // Ensure error schemas are registered in components
 func (r *FastRouter) ensureErrorSchemasRegistered() {
-	// ErrorResponse schema
+	// ErrorResponse schema (OpenAPI 3.1.1 compliant)
 	if _, exists := r.openAPISpec.Components.Schemas["ErrorResponse"]; !exists {
 		r.openAPISpec.Components.Schemas["ErrorResponse"] = OpenAPISchema{
 			Type: "object",
 			Properties: map[string]OpenAPISchema{
 				"error": {Ref: "#/components/schemas/ErrorDetail"},
 			},
-			Required: []string{"error"},
+			Required:    []string{"error"},
+			Description: "Standard error response format",
+			Examples: []interface{}{
+				map[string]interface{}{
+					"error": map[string]interface{}{
+						"status":    400,
+						"code":      "BAD_REQUEST",
+						"message":   "Invalid input provided",
+						"timestamp": "2023-12-25T10:30:00Z",
+					},
+				},
+			},
 		}
 	}
 
-	// ErrorDetail schema
+	// ErrorDetail schema with proper 3.1.1 constraints
 	if _, exists := r.openAPISpec.Components.Schemas["ErrorDetail"]; !exists {
 		r.openAPISpec.Components.Schemas["ErrorDetail"] = OpenAPISchema{
 			Type: "object",
 			Properties: map[string]OpenAPISchema{
 				"status": {
 					Type:        "integer",
+					Minimum:     float64Ptr(100),
+					Maximum:     float64Ptr(599),
 					Description: "HTTP status code",
-					Example:     400,
+					Examples:    []interface{}{400, 401, 403, 404, 500},
 				},
 				"code": {
 					Type:        "string",
 					Description: "Error code for programmatic handling",
-					Example:     "BAD_REQUEST",
+					Examples:    []interface{}{"BAD_REQUEST", "UNAUTHORIZED", "NOT_FOUND"},
+					Pattern:     "^[A-Z_]+$",
 				},
 				"message": {
 					Type:        "string",
 					Description: "Human-readable error message",
-					Example:     "Invalid input provided",
+					MinLength:   intPtr(1),
+					Examples:    []interface{}{"Invalid input provided", "Authentication required"},
 				},
 				"detail": {
 					Description: "Additional error details",
+					Examples:    []interface{}{"Field 'email' is required", nil},
 				},
 				"timestamp": {
 					Type:        "string",
 					Format:      "date-time",
-					Description: "Error timestamp",
+					Description: "Error timestamp in RFC3339 format",
+					Examples:    []interface{}{"2023-12-25T10:30:00Z"},
 				},
 				"request_id": {
-					Type:        "string",
+					Type:        []interface{}{"string", "null"},
 					Description: "Request tracking ID",
+					Examples:    []interface{}{"req_123456789", nil},
+					Pattern:     "^req_[a-zA-Z0-9]+$",
 				},
 				"path": {
-					Type:        "string",
+					Type:        []interface{}{"string", "null"},
 					Description: "Request path that caused the error",
+					Examples:    []interface{}{"/api/users", "/api/orders/123"},
 				},
 			},
-			Required: []string{"status", "code", "message", "timestamp"},
+			Required:    []string{"status", "code", "message", "timestamp"},
+			Description: "Detailed error information",
 		}
 	}
 
-	// ValidationErrorResponse schema
+	// ValidationErrorResponse with enhanced field validation
 	if _, exists := r.openAPISpec.Components.Schemas["ValidationErrorResponse"]; !exists {
 		r.openAPISpec.Components.Schemas["ValidationErrorResponse"] = OpenAPISchema{
 			Type: "object",
@@ -927,42 +1398,42 @@ func (r *FastRouter) ensureErrorSchemasRegistered() {
 					Type: "object",
 					Properties: map[string]OpenAPISchema{
 						"status": {
-							Type:        "integer",
+							Const:       422,
 							Description: "HTTP status code",
-							Example:     422,
 						},
 						"code": {
-							Type:        "string",
+							Const:       "VALIDATION_FAILED",
 							Description: "Error code",
-							Example:     "VALIDATION_FAILED",
 						},
 						"message": {
 							Type:        "string",
 							Description: "Error message",
-							Example:     "Validation failed",
+							Examples:    []interface{}{"Validation failed"},
 						},
 						"detail": {
 							Type: "array",
-							Items: &OpenAPISchema{
+							Items: OpenAPISchema{
 								Ref: "#/components/schemas/FieldError",
 							},
 							Description: "Field-specific validation errors",
+							MinItems:    intPtr(1),
 						},
 						"timestamp": {
 							Type:   "string",
 							Format: "date-time",
 						},
-						"request_id": {Type: "string"},
-						"path":       {Type: "string"},
+						"request_id": {Type: []interface{}{"string", "null"}},
+						"path":       {Type: []interface{}{"string", "null"}},
 					},
-					Required: []string{"status", "code", "message", "timestamp"},
+					Required: []string{"status", "code", "message", "detail", "timestamp"},
 				},
 			},
-			Required: []string{"error"},
+			Required:    []string{"error"},
+			Description: "Validation error response with field-specific details",
 		}
 	}
 
-	// FieldError schema
+	// FieldError schema with comprehensive validation
 	if _, exists := r.openAPISpec.Components.Schemas["FieldError"]; !exists {
 		r.openAPISpec.Components.Schemas["FieldError"] = OpenAPISchema{
 			Type: "object",
@@ -970,30 +1441,33 @@ func (r *FastRouter) ensureErrorSchemasRegistered() {
 				"field": {
 					Type:        "string",
 					Description: "Field name that failed validation",
-					Example:     "email",
+					MinLength:   intPtr(1),
+					Examples:    []interface{}{"email", "user.name", "items[0].price"},
 				},
 				"message": {
 					Type:        "string",
 					Description: "Validation error message",
-					Example:     "Invalid email format",
+					MinLength:   intPtr(1),
+					Examples:    []interface{}{"Invalid email format", "Field is required"},
 				},
 				"value": {
 					Description: "Value that failed validation",
-					Example:     "invalid-email",
+					Examples:    []interface{}{"invalid-email", "", 123},
 				},
 				"code": {
-					Type:        "string",
+					Type:        []interface{}{"string", "null"},
 					Description: "Validation error code",
-					Example:     "INVALID_FORMAT",
+					Examples:    []interface{}{"INVALID_FORMAT", "REQUIRED", "OUT_OF_RANGE"},
+					Pattern:     "^[A-Z_]+$",
 				},
 			},
-			Required: []string{"field", "message"},
+			Required:    []string{"field", "message"},
+			Description: "Field-specific validation error",
 		}
 	}
 }
 
 // Convert Go type to OpenAPI schema
-// Convert Go type to OpenAPI schema (ENHANCED VERSION with full Go type support)
 func (r *FastRouter) typeToSchema(t reflect.Type) OpenAPISchema {
 	// Handle pointer types by dereferencing
 	if t.Kind() == reflect.Ptr {
@@ -1002,18 +1476,20 @@ func (r *FastRouter) typeToSchema(t reflect.Type) OpenAPISchema {
 
 	// Handle special named types first
 	if t.PkgPath() != "" && t.Name() != "" {
-		// Handle time.Time and time.Duration specifically
 		switch t.String() {
 		case "time.Time":
 			return OpenAPISchema{
 				Type:        "string",
 				Format:      "date-time",
 				Description: "RFC3339 date-time format",
+				Examples:    []interface{}{"2023-12-25T10:30:00Z"},
 			}
 		case "time.Duration":
 			return OpenAPISchema{
 				Type:        "string",
 				Description: "Duration in Go format (e.g., '1h30m', '5s')",
+				Examples:    []interface{}{"1h30m", "5s", "100ms"},
+				Pattern:     `^([0-9]+(\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$`,
 			}
 		}
 
@@ -1022,22 +1498,25 @@ func (r *FastRouter) typeToSchema(t reflect.Type) OpenAPISchema {
 		case "net/url":
 			if t.Name() == "URL" {
 				return OpenAPISchema{
-					Type:   "string",
-					Format: "uri",
+					Type:     "string",
+					Format:   "uri",
+					Examples: []interface{}{"https://example.com/path?query=value"},
 				}
 			}
 		case "net":
 			if t.Name() == "IP" {
 				return OpenAPISchema{
-					Type:   "string",
-					Format: "ipv4", // or ipv6, but ipv4 is more common default
+					AnyOf: []OpenAPISchema{
+						{Type: "string", Format: "ipv4", Examples: []interface{}{"192.168.1.1"}},
+						{Type: "string", Format: "ipv6", Examples: []interface{}{"2001:db8::1"}},
+					},
 				}
 			}
 		case "encoding/json":
 			if t.Name() == "RawMessage" {
 				return OpenAPISchema{
-					Type:        "object",
 					Description: "Raw JSON data",
+					Examples:    []interface{}{map[string]interface{}{"key": "value"}},
 				}
 			}
 		}
@@ -1047,13 +1526,23 @@ func (r *FastRouter) typeToSchema(t reflect.Type) OpenAPISchema {
 	case reflect.String:
 		return OpenAPISchema{Type: "string"}
 
-	// Integer types
+	// Integer types - use proper JSON Schema type arrays for nullable types
 	case reflect.Int:
-		return OpenAPISchema{Type: "integer", Format: "int64"} // Platform dependent, but int64 is safe
+		return OpenAPISchema{Type: "integer", Format: "int64"}
 	case reflect.Int8:
-		return OpenAPISchema{Type: "integer", Format: "int32", Description: "8-bit signed integer"}
+		return OpenAPISchema{
+			Type:        "integer",
+			Minimum:     float64Ptr(-128),
+			Maximum:     float64Ptr(127),
+			Description: "8-bit signed integer",
+		}
 	case reflect.Int16:
-		return OpenAPISchema{Type: "integer", Format: "int32", Description: "16-bit signed integer"}
+		return OpenAPISchema{
+			Type:        "integer",
+			Minimum:     float64Ptr(-32768),
+			Maximum:     float64Ptr(32767),
+			Description: "16-bit signed integer",
+		}
 	case reflect.Int32:
 		return OpenAPISchema{Type: "integer", Format: "int32"}
 	case reflect.Int64:
@@ -1061,46 +1550,45 @@ func (r *FastRouter) typeToSchema(t reflect.Type) OpenAPISchema {
 
 	// Unsigned integer types
 	case reflect.Uint:
-		return OpenAPISchema{Type: "integer", Format: "int64", Description: "Unsigned integer"}
+		return OpenAPISchema{
+			Type:        "integer",
+			Minimum:     float64Ptr(0),
+			Description: "Unsigned integer",
+		}
 	case reflect.Uint8:
-		// Special case: uint8 is often used for bytes, but in API context usually integer
-		return OpenAPISchema{Type: "integer", Format: "int32", Description: "8-bit unsigned integer (byte)"}
+		return OpenAPISchema{
+			Type:        "integer",
+			Minimum:     float64Ptr(0),
+			Maximum:     float64Ptr(255),
+			Description: "8-bit unsigned integer (byte)",
+		}
 	case reflect.Uint16:
-		return OpenAPISchema{Type: "integer", Format: "int32", Description: "16-bit unsigned integer"}
+		return OpenAPISchema{
+			Type:        "integer",
+			Minimum:     float64Ptr(0),
+			Maximum:     float64Ptr(65535),
+			Description: "16-bit unsigned integer",
+		}
 	case reflect.Uint32:
-		return OpenAPISchema{Type: "integer", Format: "int64", Description: "32-bit unsigned integer"}
+		return OpenAPISchema{
+			Type:        "integer",
+			Format:      "int64",
+			Minimum:     float64Ptr(0),
+			Description: "32-bit unsigned integer",
+		}
 	case reflect.Uint64:
-		return OpenAPISchema{Type: "integer", Format: "int64", Description: "64-bit unsigned integer"}
-	case reflect.Uintptr:
-		return OpenAPISchema{Type: "string", Description: "Pointer address as string"}
+		return OpenAPISchema{
+			Type:        "integer",
+			Format:      "int64",
+			Minimum:     float64Ptr(0),
+			Description: "64-bit unsigned integer",
+		}
 
 	// Floating point types
 	case reflect.Float32:
 		return OpenAPISchema{Type: "number", Format: "float"}
 	case reflect.Float64:
 		return OpenAPISchema{Type: "number", Format: "double"}
-
-	// Complex types
-	case reflect.Complex64:
-		return OpenAPISchema{
-			Type: "object",
-			Properties: map[string]OpenAPISchema{
-				"real": {Type: "number", Format: "float"},
-				"imag": {Type: "number", Format: "float"},
-			},
-			Required:    []string{"real", "imag"},
-			Description: "Complex number with real and imaginary parts",
-		}
-	case reflect.Complex128:
-		return OpenAPISchema{
-			Type: "object",
-			Properties: map[string]OpenAPISchema{
-				"real": {Type: "number", Format: "double"},
-				"imag": {Type: "number", Format: "double"},
-			},
-			Required:    []string{"real", "imag"},
-			Description: "Complex number with real and imaginary parts",
-		}
 
 	case reflect.Bool:
 		return OpenAPISchema{Type: "boolean"}
@@ -1110,34 +1598,35 @@ func (r *FastRouter) typeToSchema(t reflect.Type) OpenAPISchema {
 		elemSchema := r.typeToSchema(t.Elem())
 		schema := OpenAPISchema{
 			Type:  "array",
-			Items: &elemSchema,
+			Items: elemSchema,
 		}
 
-		// Add description for byte slices (common for binary data)
+		// Special handling for byte slices
 		if t.Elem().Kind() == reflect.Uint8 {
 			schema.Description = "Base64 encoded binary data"
-			schema.Format = "byte"
+			schema.ContentEncoding = "base64"
+			schema.Type = "string"
+			schema.Items = nil
 		}
 
 		return schema
 
 	case reflect.Map:
-		// Handle map types
 		keyType := t.Key()
 		valueSchema := r.typeToSchema(t.Elem())
 
-		// OpenAPI only supports string keys in objects
+		// OpenAPI 3.1.1 supports string keys in objects
 		if keyType.Kind() == reflect.String {
 			return OpenAPISchema{
 				Type:                 "object",
-				AdditionalProperties: &valueSchema,
+				AdditionalProperties: valueSchema,
 				Description:          "Map with string keys",
 			}
 		} else {
-			// For non-string keys, represent as array of key-value pairs
+			// For non-string keys, use patternProperties or represent as array
 			return OpenAPISchema{
 				Type: "array",
-				Items: &OpenAPISchema{
+				Items: OpenAPISchema{
 					Type: "object",
 					Properties: map[string]OpenAPISchema{
 						"key":   r.typeToSchema(keyType),
@@ -1174,43 +1663,23 @@ func (r *FastRouter) typeToSchema(t reflect.Type) OpenAPISchema {
 		return r.generateStructSchema(t)
 
 	case reflect.Interface:
-		// Handle interface{} and any types
+		// Handle interface{} and any types - OpenAPI 3.1.1 way
 		if t.NumMethod() == 0 { // empty interface
 			return OpenAPISchema{
 				Description: "Any value (interface{})",
-				// No type specified - allows any type
+				// In OpenAPI 3.1.1, omitting type allows any type
 			}
 		}
-		// For non-empty interfaces, we can't really represent them well in OpenAPI
+		// For non-empty interfaces
 		return OpenAPISchema{
 			Type:        "object",
 			Description: "Interface type - actual structure may vary",
 		}
 
-	case reflect.Chan:
-		// Channels don't make sense in HTTP APIs, but handle gracefully
-		return OpenAPISchema{
-			Type:        "string",
-			Description: "Channel type (not serializable in HTTP APIs)",
-		}
-
-	case reflect.Func:
-		// Functions don't make sense in HTTP APIs, but handle gracefully
-		return OpenAPISchema{
-			Type:        "string",
-			Description: "Function type (not serializable in HTTP APIs)",
-		}
-
-	case reflect.UnsafePointer:
-		return OpenAPISchema{
-			Type:        "string",
-			Description: "Unsafe pointer (not serializable in HTTP APIs)",
-		}
-
 	default:
 		return OpenAPISchema{
-			Type:        "string",
-			Description: "Unknown type, represented as string",
+			Description: "Unknown type, represented as any value",
+			// No type specified allows any value in 3.1.1
 		}
 	}
 }
@@ -1233,16 +1702,34 @@ func (r *FastRouter) generateStructSchema(t reflect.Type) OpenAPISchema {
 
 		// Handle embedded fields
 		if field.Anonymous {
-			// For embedded structs, merge their properties
 			if field.Type.Kind() == reflect.Struct || (field.Type.Kind() == reflect.Ptr && field.Type.Elem().Kind() == reflect.Struct) {
 				embeddedSchema := r.typeToSchema(field.Type)
-				if embeddedSchema.Properties != nil {
-					for propName, propSchema := range embeddedSchema.Properties {
-						schema.Properties[propName] = propSchema
+
+				// In OpenAPI 3.1.1, we can use allOf for composition
+				if len(schema.Properties) == 0 && len(schema.Required) == 0 {
+					// First embedded struct, use its properties directly
+					if embeddedSchema.Properties != nil {
+						for propName, propSchema := range embeddedSchema.Properties {
+							schema.Properties[propName] = propSchema
+						}
 					}
-				}
-				if embeddedSchema.Required != nil {
-					schema.Required = append(schema.Required, embeddedSchema.Required...)
+					if embeddedSchema.Required != nil {
+						schema.Required = append(schema.Required, embeddedSchema.Required...)
+					}
+				} else {
+					// Multiple embedded structs, use allOf
+					if schema.AllOf == nil {
+						// Convert current schema to allOf
+						currentSchema := OpenAPISchema{
+							Type:       "object",
+							Properties: schema.Properties,
+							Required:   schema.Required,
+						}
+						schema.AllOf = []OpenAPISchema{currentSchema}
+						schema.Properties = nil
+						schema.Required = nil
+					}
+					schema.AllOf = append(schema.AllOf, embeddedSchema)
 				}
 			}
 			continue
@@ -1253,7 +1740,7 @@ func (r *FastRouter) generateStructSchema(t reflect.Type) OpenAPISchema {
 			continue
 		}
 
-		// Parse json tag to get field name and options
+		// Parse json tag
 		parts := strings.Split(jsonTag, ",")
 		fieldName := parts[0]
 		if fieldName == "" {
@@ -1277,30 +1764,43 @@ func (r *FastRouter) generateStructSchema(t reflect.Type) OpenAPISchema {
 			fieldSchema.Description = desc
 		}
 
-		// Add example from tag if present
+		// Add examples from tag if present (OpenAPI 3.1.1 uses examples array)
 		if example := field.Tag.Get("example"); example != "" {
-			fieldSchema.Example = example
+			fieldSchema.Examples = []interface{}{example}
 		}
 
-		// Add format from tag if present (overrides auto-detected format)
+		// Add format from tag if present
 		if format := field.Tag.Get("format"); format != "" {
 			fieldSchema.Format = format
 		}
 
 		// Add validation constraints
 		if min := field.Tag.Get("min"); min != "" {
-			fieldSchema.Minimum = &min
+			if minVal, err := strconv.ParseFloat(min, 64); err == nil {
+				fieldSchema.Minimum = &minVal
+			}
 		}
 		if max := field.Tag.Get("max"); max != "" {
-			fieldSchema.Maximum = &max
+			if maxVal, err := strconv.ParseFloat(max, 64); err == nil {
+				fieldSchema.Maximum = &maxVal
+			}
 		}
 		if pattern := field.Tag.Get("pattern"); pattern != "" {
 			fieldSchema.Pattern = pattern
 		}
 
+		// Handle nullable fields (OpenAPI 3.1.1 style)
+		if field.Type.Kind() == reflect.Ptr {
+			// For pointer types, allow null in addition to the base type
+			baseType := fieldSchema.Type
+			if baseType != nil {
+				fieldSchema.Type = []interface{}{baseType, "null"}
+			}
+		}
+
 		schema.Properties[fieldName] = fieldSchema
 
-		// Check if field is required (required tag or not omitempty and not pointer)
+		// Check if field is required
 		isRequired := field.Tag.Get("required") == "true"
 		if !isRequired && !omitEmpty && field.Type.Kind() != reflect.Ptr {
 			isRequired = true
@@ -1310,44 +1810,19 @@ func (r *FastRouter) generateStructSchema(t reflect.Type) OpenAPISchema {
 			schema.Required = append(schema.Required, fieldName)
 		}
 	}
-
 	return schema
 }
 
 // EnableOpenAPI mount OpenAPI documentation
 func (r *FastRouter) EnableOpenAPI() {
 	// Serve OpenAPI spec
-	r.GET("/openapi", func(w http.ResponseWriter, req *http.Request) {
+	r.GET("/openapi.json", func(w http.ResponseWriter, req *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(r.openAPISpec)
 	})
 
 	// Swagger UI
-	r.GET("/openapi/swagger", func(w http.ResponseWriter, req *http.Request) {
-		html := `<!DOCTYPE html>
-<html>
-<head>
-    <title>API Documentation - Swagger UI</title>
-    <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@3.25.0/swagger-ui.css" />
-</head>
-<body>
-    <div id="swagger-ui"></div>
-    <script src="https://unpkg.com/swagger-ui-dist@3.25.0/swagger-ui-bundle.js"></script>
-    <script>
-        SwaggerUIBundle({
-            url: '/openapi',
-            dom_id: '#swagger-ui',
-            presets: [
-                SwaggerUIBundle.presets.apis,
-                SwaggerUIBundle.presets.standalone
-            ]
-        });
-    </script>
-</body>
-</html>`
-		w.Header().Set("Content-Type", "text/html")
-		w.Write([]byte(html))
-	})
+	r.addSwaggerUIEndpoint()
 
 	// Stoplight Elements
 	r.GET("/openapi/spotlight", func(w http.ResponseWriter, req *http.Request) {
@@ -1362,7 +1837,7 @@ func (r *FastRouter) EnableOpenAPI() {
 </head>
 <body>
     <elements-api
-        apiDescriptionUrl="/openapi"
+        apiDescriptionUrl="/openapi.json"
         router="hash"
         layout="sidebar"
     />
@@ -1384,7 +1859,7 @@ func (r *FastRouter) EnableOpenAPI() {
 <body>
     <script
         id="api-reference"
-        data-url="/openapi"
+        data-url="/openapi.json"
         data-configuration='{
             "theme": "default",
             "layout": "modern",
@@ -1417,7 +1892,7 @@ func (r *FastRouter) EnableOpenAPI() {
     </style>
 </head>
 <body>
-    <redoc spec-url="/openapi"></redoc>
+    <redoc spec-url="/openapi.json"></redoc>
     <script src="https://cdn.jsdelivr.net/npm/redoc@2.1.3/bundles/redoc.standalone.js"></script>
 </body>
 </html>`
@@ -1522,7 +1997,7 @@ func (r *FastRouter) EnableOpenAPI() {
             </a>
         </div>
         
-        <a href="/openapi" class="spec-link">View Raw OpenAPI Spec</a>
+        <a href="/openapi.json" class="spec-link">View Raw OpenAPI Spec</a>
     </div>
 </body>
 </html>`

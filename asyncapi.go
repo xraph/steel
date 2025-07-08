@@ -1,6 +1,8 @@
-package forge_router
+package forgerouter
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -1451,7 +1453,13 @@ func WithAsyncTags(tags ...string) AsyncHandlerOption {
 
 // generateClientID generates a unique client identifier based on the current timestamp in nanoseconds.
 func generateClientID() string {
-	return fmt.Sprintf("client_%d", time.Now().UnixNano())
+	b := make([]byte, 8)
+	_, err := rand.Read(b)
+	if err != nil {
+		// Fallback for the rare case that crypto/rand fails
+		return fmt.Sprintf("client_%d", time.Now().UnixNano())
+	}
+	return "client_" + hex.EncodeToString(b)
 }
 
 // ConnectionManager returns the ConnectionManager instance used to manage WebSocket and SSE connections.

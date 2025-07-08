@@ -1,4 +1,4 @@
-package forge_router
+package forgerouter
 
 import (
 	"bytes"
@@ -512,7 +512,7 @@ func TestOpenAPIGeneration(t *testing.T) {
 
 	router.EnableOpenAPI()
 
-	req := httptest.NewRequest("GET", "/openapi", nil)
+	req := httptest.NewRequest("GET", "/openapi.json", nil)
 	w := httptest.NewRecorder()
 
 	router.ServeHTTP(w, req)
@@ -530,8 +530,8 @@ func TestOpenAPIGeneration(t *testing.T) {
 		t.Fatalf("Failed to decode OpenAPI spec: %v", err)
 	}
 
-	if openapi, ok := spec["openapi"]; !ok || openapi != "3.0.0" {
-		t.Errorf("Expected OpenAPI version 3.0.0, got %v", openapi)
+	if openapi, ok := spec["openapi"]; !ok || openapi != "3.1.1" {
+		t.Errorf("Expected OpenAPI version 3.1.1, got %v", openapi)
 	}
 
 	if paths, ok := spec["paths"]; !ok {

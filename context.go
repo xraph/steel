@@ -1,4 +1,4 @@
-package forge_router
+package forgerouter
 
 import (
 	"context"

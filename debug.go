@@ -1,4 +1,4 @@
-package forge_router
+package forgerouter
 
 import (
 	"fmt"
@@ -22,4 +22,12 @@ func (r *FastRouter) debugNode(n *node, indent string) {
 	for _, child := range n.children {
 		r.debugNode(child, indent+"  ")
 	}
+}
+
+func intPtr(i int) *int {
+	return &i
+}
+
+func float64Ptr(f float64) *float64 {
+	return &f
 }
