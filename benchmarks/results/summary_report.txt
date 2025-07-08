@@ -1,0 +1,8 @@
+Router Benchmark Comparison Report
+==================================
+
+### Overall Performance Summary
+
+Router       Avg ns/op    Avg B/op     Avg allocs/op Tests   
+-----------------------------------------------------------------
+

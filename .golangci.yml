@@ -1,0 +1,451 @@
+run:
+  timeout: 10m
+  issues-exit-code: 1
+  tests: true
+  modules-download-mode: readonly
+
+output:
+  format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true
+
+linters:
+  disable-all: true
+  enable:
+    # Core linters
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - typecheck
+    - unused
+
+    # Additional linters
+    - asciicheck
+    - bodyclose
+    - cyclop
+    - dogsled
+    - dupl
+    - durationcheck
+    - errorlint
+    - exhaustive
+    - exportloopref
+    - forbidigo
+    - forcetypeassert
+    - gci
+    - gochecknoinits
+    - gocognit
+    - goconst
+    - gocritic
+    - gocyclo
+    - godot
+    - godox
+    - gofmt
+    - gofumpt
+    - goheader
+    - goimports
+    - gomnd
+    - gomoddirectives
+    - gomodguard
+    - goprintffuncname
+    - gosec
+    - grouper
+    - importas
+    - interfacebloat
+    - lll
+    - maintidx
+    - makezero
+    - misspell
+    - nakedret
+    - nestif
+    - nilerr
+    - nlreturn
+    - noctx
+    - nolintlint
+    - nonamedreturns
+    - nosprintfhostport
+    - prealloc
+    - predeclared
+    - promlinter
+    - reassign
+    - revive
+    - rowserrcheck
+    - sqlclosecheck
+    - stylecheck
+    - tagliatelle
+    - tenv
+    - testableexamples
+    - thelper
+    - tparallel
+    - unconvert
+    - unparam
+    - usestdlibvars
+    - wastedassign
+    - whitespace
+    - wrapcheck
+
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+
+  gocognit:
+    min-complexity: 20
+
+  goconst:
+    min-len: 2
+    min-occurrences: 3
+
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - experimental
+      - opinionated
+      - performance
+      - style
+    disabled-checks:
+      - dupImport
+      - ifElseChain
+      - octalLiteral
+      - whyNoLint
+
+  gocyclo:
+    min-complexity: 15
+
+  godot:
+    scope: declarations
+    exclude:
+      - "^fixme:"
+      - "^todo:"
+
+  gofmt:
+    simplify: true
+
+  gofumpt:
+    lang-version: "1.21"
+
+  goheader:
+    template: |-
+      Copyright {{ YEAR }} FastRouter Contributors
+      
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+      
+          http://www.apache.org/licenses/LICENSE-2.0
+      
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+  goimports:
+    local-prefixes: github.com/xraph/forgerouter
+
+  gomnd:
+    checks:
+      - argument
+      - case
+      - condition
+      - return
+    ignored-numbers:
+      - '0'
+      - '1'
+      - '2'
+      - '3'
+
+  gosec:
+    excludes:
+      - G204  # Subprocess launched with variable
+      - G301  # Poor file permissions used when creating a directory
+      - G302  # Poor file permissions used with chmod
+      - G304  # File path provided as taint input
+
+  lll:
+    line-length: 120
+
+  misspell:
+    locale: US
+
+  nakedret:
+    max-func-lines: 30
+
+  prealloc:
+    simple: true
+    range-loops: true
+    for-loops: false
+
+  revive:
+    rules:
+      - name: exported
+        disabled: false
+        arguments:
+          - "disableStutteringCheck"
+
+  stylecheck:
+    checks: ["all", "-ST1000", "-ST1003", "-ST1016"]
+
+  tagliatelle:
+    case:
+      rules:
+        json: snake
+        yaml: snake
+
+  testableexamples:
+    enable: true
+
+  unparam:
+    check-exported: false
+
+  wrapcheck:
+    ignoreSigs:
+      - .Errorf(
+      - errors.New(
+      - errors.Unwrap(
+      - .Wrap(
+      - .Wrapf(
+
+issues:
+  exclude-rules:
+    # Exclude some linters from running on tests files
+    - path: _test\.go
+      linters:
+        - gomnd
+        - goconst
+        - noctx
+        - funlen
+        - dupl
+
+    # Exclude known linter issues
+    - text: "Use of weak random number generator"
+      linters:
+        - gosec
+
+    - text: "Subprocess launched with variable"
+      linters:
+        - gosec
+
+    - text: "G307: Deferring unsafe method"
+      linters:
+        - gosec
+
+    - path: cmd/
+      linters:
+        - forbidigo
+
+  max-issues-per-linter: 50
+  max-same-issues: 3
+
+---
+# Dockerfile
+FROM golang:1.21-alpine AS builder
+  
+  # Install git and ca-certificates (needed for private repos and SSL)
+RUN apk update && apk add --no-cache git ca-certificates tzdata && update-ca-certificates
+  
+  # Create appuser for security
+RUN adduser -D -g '' appuser
+
+WORKDIR /app
+  
+  # Copy go mod files
+COPY go.mod go.sum ./
+  
+  # Download dependencies
+RUN go mod download && go mod verify
+  
+  # Copy source code
+COPY . .
+  
+  # Build args for version info
+ARG VERSION=dev
+ARG BUILD_TIME
+ARG GIT_COMMIT
+  
+  # Build the binary
+RUN CGO_ENABLED=0 GOOS=linux go build \
+-ldflags="-s -w -X main.version=${VERSION} -X main.buildTime=${BUILD_TIME} -X main.gitCommit=${GIT_COMMIT}" \
+-a -installsuffix cgo \
+-o forge-router \
+./cmd/...
+  
+  # Final stage
+FROM scratch
+  
+  # Import ca-certificates from builder
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
+  
+  # Import user from builder
+COPY --from=builder /etc/passwd /etc/passwd
+  
+  # Copy binary from builder
+COPY --from=builder /app/forge-router /forge-router
+  
+  # Use non-root user
+USER appuser
+  
+  # Expose port
+EXPOSE 8080
+  
+  # Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+CMD ["/forge-router", "health"]
+  
+  # Run the binary
+ENTRYPOINT ["/forge-router"]
+
+---
+# .github/release.yml
+changelog:
+  exclude:
+    labels:
+      - ignore-for-release
+    authors:
+      - dependabot
+  categories:
+    - title: Breaking Changes 💥
+      labels:
+        - breaking-change
+        - breaking
+    - title: New Features 🚀
+      labels:
+        - enhancement
+        - feature
+    - title: Bug Fixes 🐛
+      labels:
+        - bug
+        - bugfix
+    - title: Performance Improvements ⚡
+      labels:
+        - performance
+        - perf
+    - title: Documentation 📚
+      labels:
+        - documentation
+        - docs
+    - title: Dependency Updates 📦
+      labels:
+        - dependencies
+        - deps
+    - title: Other Changes
+      labels:
+        - "*"
+
+---
+# .github/mlc_config.json
+{
+  "ignorePatterns": [
+    {
+      "pattern": "^http://localhost"
+    },
+    {
+      "pattern": "^https://localhost"
+    },
+    {
+      "pattern": "^http://127.0.0.1"
+    },
+    {
+      "pattern": "^https://example.com"
+    }
+  ],
+  "replacementPatterns": [
+    {
+      "pattern": "^/",
+      "replacement": "{{BASEURL}}/"
+    }
+  ],
+  "httpHeaders": [
+    {
+      "urls": ["https://github.com"],
+      "headers": {
+        "Accept": "text/html"
+      }
+    }
+  ],
+  "timeout": "20s",
+  "retryOn429": true,
+  "retryCount": 3,
+  "aliveStatusCodes": [200, 206, 300, 301, 302, 303, 304, 307, 308]
+}
+
+---
+# .github/typos.toml
+  [default]
+  extend-ignore-re = [
+  "(?Rm)^.*(#|//)\\s*spellchecker:disable-line$",
+]
+
+  [default.extend-words]
+  # Add any project-specific words that shouldn't be flagged as typos
+  fastrouter = "fastrouter"
+  gorilla = "gorilla"
+  middlewares = "middlewares"
+  
+  [files]
+  extend-exclude = [
+  "*.log",
+  "vendor/",
+  ".git/",
+  "go.sum",
+  "*.json",
+  "*.toml",
+]
+
+---
+# .github/dependabot.yml
+version: 2
+updates:
+  # Enable version updates for Go modules
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "your-username"  # Replace with actual GitHub username
+    assignees:
+      - "your-username"  # Replace with actual GitHub username
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "go"
+
+  # Enable version updates for GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "your-username"  # Replace with actual GitHub username
+    commit-message:
+      prefix: "chore(ci)"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "github-actions"
+
+  # Enable version updates for Docker
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+    open-pull-requests-limit: 3
+    reviewers:
+      - "your-username"  # Replace with actual GitHub username
+    commit-message:
+      prefix: "chore(docker)"
+    labels:
+      - "dependencies"
+      - "docker"

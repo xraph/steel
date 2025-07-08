@@ -1,0 +1,73 @@
+{
+  "summaries": [
+    {
+      "Category": "QuickComparison",
+      "Results": [
+        {
+          "Router": "Gin",
+          "NsPerOp": 87.56,
+          "BytesPerOp": 48,
+          "AllocsPerOp": 1,
+          "Relative": 1
+        },
+        {
+          "Router": "Gin",
+          "NsPerOp": 87.62,
+          "BytesPerOp": 48,
+          "AllocsPerOp": 1,
+          "Relative": 1.0006852444038374
+        },
+        {
+          "Router": "Gin",
+          "NsPerOp": 88.68,
+          "BytesPerOp": 48,
+          "AllocsPerOp": 1,
+          "Relative": 1.012791228871631
+        },
+        {
+          "Router": "FastRouter",
+          "NsPerOp": 206.7,
+          "BytesPerOp": 386,
+          "AllocsPerOp": 4,
+          "Relative": 2.360666971219735
+        },
+        {
+          "Router": "Chi",
+          "NsPerOp": 207.3,
+          "BytesPerOp": 370,
+          "AllocsPerOp": 3,
+          "Relative": 2.367519415258109
+        },
+        {
+          "Router": "FastRouter",
+          "NsPerOp": 208.5,
+          "BytesPerOp": 386,
+          "AllocsPerOp": 4,
+          "Relative": 2.381224303334856
+        },
+        {
+          "Router": "FastRouter",
+          "NsPerOp": 208.5,
+          "BytesPerOp": 386,
+          "AllocsPerOp": 4,
+          "Relative": 2.381224303334856
+        },
+        {
+          "Router": "Chi",
+          "NsPerOp": 210.7,
+          "BytesPerOp": 370,
+          "AllocsPerOp": 3,
+          "Relative": 2.4063499314755594
+        },
+        {
+          "Router": "Chi",
+          "NsPerOp": 212.6,
+          "BytesPerOp": 370,
+          "AllocsPerOp": 3,
+          "Relative": 2.428049337597076
+        }
+      ]
+    }
+  ],
+  "timestamp": "77943"
+}

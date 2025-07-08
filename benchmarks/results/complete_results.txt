@@ -1,0 +1,15 @@
+goos: darwin
+goarch: arm64
+pkg: router-benchmarks
+cpu: Apple M3 Max
+BenchmarkQuickComparison/FastRouter-16         	 5795458	       208.5 ns/op	     386 B/op	       4 allocs/op
+BenchmarkQuickComparison/FastRouter-16         	 5787721	       206.7 ns/op	     386 B/op	       4 allocs/op
+BenchmarkQuickComparison/FastRouter-16         	 5826962	       208.5 ns/op	     386 B/op	       4 allocs/op
+BenchmarkQuickComparison/Chi-16                	 5906262	       207.3 ns/op	     370 B/op	       3 allocs/op
+BenchmarkQuickComparison/Chi-16                	 5739508	       212.6 ns/op	     370 B/op	       3 allocs/op
+BenchmarkQuickComparison/Chi-16                	 5569149	       210.7 ns/op	     370 B/op	       3 allocs/op
+BenchmarkQuickComparison/Gin-16                	13390117	        87.56 ns/op	      48 B/op	       1 allocs/op
+BenchmarkQuickComparison/Gin-16                	13553208	        87.62 ns/op	      48 B/op	       1 allocs/op
+BenchmarkQuickComparison/Gin-16                	13289484	        88.68 ns/op	      48 B/op	       1 allocs/op
+PASS
+ok  	router-benchmarks	12.541s

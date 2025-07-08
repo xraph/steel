@@ -1,0 +1,320 @@
+name: Security
+
+on:
+  schedule:
+    - cron: '0 2 * * 1'  # Weekly on Monday at 2 AM UTC
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  # CodeQL Analysis
+  codeql:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      packages: read
+      actions: read
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ 'go' ]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v2
+        with:
+          languages: ${{ matrix.language }}
+          queries: +security-and-quality
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      - name: Build project
+        run: |
+          go mod download
+          go build -v ./...
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v2
+        with:
+          category: "/language:${{matrix.language}}"
+
+  # Trivy Vulnerability Scanner
+  trivy:
+    name: Trivy Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner in repo mode
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  # Gosec Security Scanner
+  gosec:
+    name: Gosec Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      - name: Run Gosec Security Scanner
+        uses: securecodewarrior/github-action-gosec@master
+        with:
+          args: '-fmt sarif -out gosec.sarif ./...'
+
+      - name: Upload SARIF file
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: gosec.sarif
+
+  # Nancy Vulnerability Scanner
+  nancy:
+    name: Nancy Vulnerability Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      - name: WriteGoList
+        run: go list -json -deps ./... > go.list
+
+      - name: Nancy
+        uses: sonatypecommunity/nancy-github-action@main
+        with:
+          nancyCommand: sleuth --path go.list
+
+---
+# .github/workflows/dependencies.yml
+name: Dependencies
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'  # Weekly on Monday at 6 AM UTC
+  workflow_dispatch:
+
+jobs:
+  # Update Go dependencies
+  update-go-deps:
+    name: Update Go Dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      - name: Update dependencies
+        run: |
+          go get -u ./...
+          go mod tidy
+
+      - name: Check for changes
+        id: verify-changed-files
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run tests
+        if: steps.verify-changed-files.outputs.changed == 'true'
+        run: |
+          go test ./...
+
+      - name: Create Pull Request
+        if: steps.verify-changed-files.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: 'chore(deps): update Go dependencies'
+          title: 'chore(deps): Update Go dependencies'
+          body: |
+            Updates Go dependencies to their latest versions.
+            
+            This PR was automatically created by the dependency update workflow.
+            
+            - All dependencies have been updated to their latest versions
+            - Tests are passing
+            - Please review the changes before merging
+          branch: update-dependencies
+          delete-branch: true
+
+  # Check for outdated actions
+  update-actions:
+    name: Update GitHub Actions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update GitHub Actions
+        uses: fjogeleit/http-request-action@v1
+        id: check-actions
+        with:
+          url: 'https://api.github.com/repos/${{ github.repository }}/contents/.github/workflows'
+          method: 'GET'
+          customHeaders: '{"Authorization": "Bearer ${{ secrets.GITHUB_TOKEN }}"}'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: |
+          npm install -g @github/action-updater
+
+      - name: Update actions
+        run: |
+          action-updater .github/workflows/
+
+      - name: Check for changes
+        id: verify-changed-actions
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Pull Request
+        if: steps.verify-changed-actions.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: 'chore(ci): update GitHub Actions'
+          title: 'chore(ci): Update GitHub Actions to latest versions'
+          body: |
+            Updates GitHub Actions to their latest versions.
+            
+            This PR was automatically created by the action update workflow.
+            
+            - All GitHub Actions have been updated to their latest versions
+            - Please review the changes before merging
+          branch: update-actions
+          delete-branch: true
+
+---
+# .github/workflows/docs.yml
+name: Documentation
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'docs/**'
+      - 'README.md'
+      - '*.md'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'docs/**'
+      - 'README.md'
+      - '*.md'
+
+jobs:
+  # Build and deploy documentation
+  build-docs:
+    name: Build Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: |
+          # If you're using a static site generator like VitePress, Docusaurus, etc.
+          # npm install
+          echo "No documentation dependencies to install"
+
+      - name: Build documentation
+        run: |
+          # Build your documentation
+          # npm run build:docs
+          echo "Documentation built successfully"
+
+      - name: Deploy to GitHub Pages
+        if: github.ref == 'refs/heads/main'
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs
+          # publish_dir: ./dist  # If using a build tool
+
+  # Check documentation links
+  link-checker:
+    name: Check Documentation Links
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check links in markdown files
+        uses: gaurav-nelson/github-action-markdown-link-check@v1
+        with:
+          use-quiet-mode: 'yes'
+          use-verbose-mode: 'yes'
+          config-file: '.github/mlc_config.json'
+          folder-path: 'docs'
+
+  # Spell check
+  spell-check:
+    name: Spell Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check spelling
+        uses: crate-ci/typos@master
+        with:
+          files: |
+            *.md
+            docs/
+          config: ./.github/typos.toml

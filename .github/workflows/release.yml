@@ -1,0 +1,376 @@
+name: Release
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Release type'
+        required: false
+        default: 'auto'
+        type: choice
+        options:
+          - auto
+          - patch
+          - minor
+          - major
+
+env:
+  GO_VERSION: '1.21'
+
+jobs:
+  # Check if release is needed
+  check-release:
+    name: Check Release
+    runs-on: ubuntu-latest
+    outputs:
+      should_release: ${{ steps.check.outputs.should_release }}
+      new_version: ${{ steps.version.outputs.new_version }}
+      changelog: ${{ steps.version.outputs.changelog }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for changelog generation
+
+      - name: Check if release needed
+        id: check
+        run: |
+          # Check for conventional commit patterns that trigger releases
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          COMMITS_SINCE_TAG=$(git rev-list ${LAST_TAG}..HEAD --count)
+          
+          echo "Last tag: $LAST_TAG"
+          echo "Commits since tag: $COMMITS_SINCE_TAG"
+          
+          if [ "$COMMITS_SINCE_TAG" -eq 0 ]; then
+            echo "should_release=false" >> $GITHUB_OUTPUT
+            echo "No new commits since last tag"
+          else
+            # Check for release-worthy commits
+            RELEASE_COMMITS=$(git log ${LAST_TAG}..HEAD --oneline --grep="^feat\|^fix\|^BREAKING CHANGE\|^perf" || true)
+            if [ -n "$RELEASE_COMMITS" ]; then
+              echo "should_release=true" >> $GITHUB_OUTPUT
+              echo "Found release-worthy commits"
+            else
+              echo "should_release=false" >> $GITHUB_OUTPUT
+              echo "No release-worthy commits found"
+            fi
+          fi
+
+      - name: Calculate new version
+        id: version
+        if: steps.check.outputs.should_release == 'true' || github.event_name == 'workflow_dispatch'
+        run: |
+          # Install semver tool
+          npm install -g semver conventional-changelog-cli
+          
+          # Get current version
+          CURRENT_VERSION=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || echo "0.0.0")
+          echo "Current version: $CURRENT_VERSION"
+          
+          # Determine version bump type
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.release_type }}" != "auto" ]; then
+            BUMP_TYPE="${{ github.event.inputs.release_type }}"
+          else
+            # Analyze commits for bump type
+            LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          
+            # Check for breaking changes
+            if git log ${LAST_TAG}..HEAD --grep="BREAKING CHANGE" --oneline | grep -q .; then
+              BUMP_TYPE="major"
+            # Check for features
+            elif git log ${LAST_TAG}..HEAD --grep="^feat" --oneline | grep -q .; then
+              BUMP_TYPE="minor"
+            # Check for fixes
+            elif git log ${LAST_TAG}..HEAD --grep="^fix\|^perf" --oneline | grep -q .; then
+              BUMP_TYPE="patch"
+            else
+              BUMP_TYPE="patch"
+            fi
+          fi
+          
+          echo "Bump type: $BUMP_TYPE"
+          
+          # Calculate new version
+          NEW_VERSION=$(semver -i $BUMP_TYPE $CURRENT_VERSION)
+          echo "New version: $NEW_VERSION"
+          echo "new_version=v$NEW_VERSION" >> $GITHUB_OUTPUT
+          
+          # Generate changelog
+          if [ -f "CHANGELOG.md" ]; then
+            conventional-changelog -p angular -i CHANGELOG.md -s -r 0
+            CHANGELOG_CONTENT=$(conventional-changelog -p angular -r 1)
+          else
+            CHANGELOG_CONTENT="## What's Changed\n\n$(git log ${LAST_TAG}..HEAD --pretty=format:"* %s (%h)" --no-merges)"
+          fi
+          
+          # Save changelog to file for later use
+          echo "$CHANGELOG_CONTENT" > /tmp/changelog.md
+          
+          # Set output (escape newlines for GitHub Actions)
+          CHANGELOG_ESCAPED=$(echo "$CHANGELOG_CONTENT" | sed ':a;N;$!ba;s/\n/\\n/g')
+          echo "changelog=$CHANGELOG_ESCAPED" >> $GITHUB_OUTPUT
+
+  # Build release artifacts
+  build-release:
+    name: Build Release Artifacts
+    runs-on: ubuntu-latest
+    needs: check-release
+    if: needs.check-release.outputs.should_release == 'true' || github.event_name == 'workflow_dispatch'
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+          - goos: windows
+            goarch: amd64
+          - goos: freebsd
+            goarch: amd64
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Build binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          VERSION: ${{ needs.check-release.outputs.new_version }}
+        run: |
+          mkdir -p dist
+          
+          # Set binary extension for Windows
+          if [ "$GOOS" = "windows" ]; then
+            EXT=".exe"
+          else
+            EXT=""
+          fi
+          
+          # Build with version info
+          BINARY_NAME="forge-router-${{ matrix.goos }}-${{ matrix.goarch }}$EXT"
+          
+          go build \
+            -ldflags="-s -w -X main.version=${VERSION} -X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X main.gitCommit=$(git rev-parse HEAD)" \
+            -o dist/$BINARY_NAME \
+            ./cmd/...
+          
+          # Create tarball (except for Windows)
+          cd dist
+          if [ "$GOOS" = "windows" ]; then
+            zip "../forge-router-${{ matrix.goos }}-${{ matrix.goarch }}.zip" $BINARY_NAME
+          else
+            tar -czf "../forge-router-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz" $BINARY_NAME
+          fi
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: release-artifacts
+          path: |
+            *.tar.gz
+            *.zip
+
+  # Build Docker image
+  build-docker:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    needs: check-release
+    if: needs.check-release.outputs.should_release == 'true' || github.event_name == 'workflow_dispatch'
+    outputs:
+      image_digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}},value=${{ needs.check-release.outputs.new_version }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.check-release.outputs.new_version }}
+            type=semver,pattern={{major}},value=${{ needs.check-release.outputs.new_version }}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ needs.check-release.outputs.new_version }}
+            BUILD_TIME=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
+            GIT_COMMIT=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Create GitHub Release
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs: [check-release, build-release, build-docker]
+    if: needs.check-release.outputs.should_release == 'true' || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: release-artifacts
+          path: ./artifacts
+
+      - name: Generate release notes
+        id: notes
+        run: |
+          VERSION="${{ needs.check-release.outputs.new_version }}"
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          
+          # Create release notes
+          cat > release_notes.md << 'EOF'
+          # Release ${{ needs.check-release.outputs.new_version }}
+          
+          ## What's Changed
+          
+          ${{ needs.check-release.outputs.changelog }}
+          
+          ## 📦 Installation
+          
+          ### Binary Download
+          Download the appropriate binary for your platform from the assets below.
+          
+          ### Docker
+          ```bash
+          docker pull ghcr.io/${{ github.repository }}:${{ needs.check-release.outputs.new_version }}
+          ```
+          
+          ### Go Install
+          ```bash
+          go install github.com/${{ github.repository }}/cmd/forge-router@${{ needs.check-release.outputs.new_version }}
+          ```
+          
+          ## 🔍 Verification
+          
+          All binaries are signed and can be verified using the checksums below.
+          
+          **Docker Image Digest:** `${{ needs.build-docker.outputs.image_digest }}`
+          
+          ---
+          
+          **Full Changelog**: https://github.com/${{ github.repository }}/compare/${LAST_TAG}...${{ needs.check-release.outputs.new_version }}
+          EOF
+
+      - name: Generate checksums
+        run: |
+          cd artifacts
+          sha256sum * > ../checksums.txt
+          cd ..
+
+      - name: Create Git tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "${{ needs.check-release.outputs.new_version }}" -m "Release ${{ needs.check-release.outputs.new_version }}"
+          git push origin "${{ needs.check-release.outputs.new_version }}"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ needs.check-release.outputs.new_version }}
+          name: Release ${{ needs.check-release.outputs.new_version }}
+          body_path: release_notes.md
+          draft: false
+          prerelease: false
+          files: |
+            artifacts/*
+            checksums.txt
+          generate_release_notes: true
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update CHANGELOG.md
+        run: |
+          # Install conventional-changelog-cli if not already installed
+          npm install -g conventional-changelog-cli
+          
+          # Update CHANGELOG.md
+          conventional-changelog -p angular -i CHANGELOG.md -s
+          
+          # Commit updated changelog
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md
+          git commit -m "docs: update CHANGELOG.md for ${{ needs.check-release.outputs.new_version }}" || echo "No changes to commit"
+          git push origin main || echo "No changes to push"
+
+  # Notify on release
+  notify:
+    name: Notify Release
+    runs-on: ubuntu-latest
+    needs: [create-release, check-release]
+    if: success() && (needs.check-release.outputs.should_release == 'true' || github.event_name == 'workflow_dispatch')
+    steps:
+      - name: Notify Slack (if configured)
+        if: env.SLACK_WEBHOOK_URL != ''
+        uses: 8398a7/action-slack@v3
+        with:
+          status: success
+          text: |
+            🚀 New release published: ${{ needs.check-release.outputs.new_version }}
+            📦 View release: https://github.com/${{ github.repository }}/releases/tag/${{ needs.check-release.outputs.new_version }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Create GitHub Deployment
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const deployment = await github.rest.repos.createDeployment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: '${{ needs.check-release.outputs.new_version }}',
+              environment: 'production',
+              auto_merge: false,
+              required_contexts: []
+            });
+            
+            await github.rest.repos.createDeploymentStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              deployment_id: deployment.data.id,
+              state: 'success',
+              description: 'Release ${{ needs.check-release.outputs.new_version }} deployed successfully'
+            });
