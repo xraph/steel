@@ -3,7 +3,6 @@ package forgerouter
 import (
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -13,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	json "github.com/json-iterator/go"
 )
 
 // AsyncAPISpec represents the structure of an AsyncAPI specification document.

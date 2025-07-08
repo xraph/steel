@@ -2,10 +2,11 @@ package forgerouter
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"path"
 	"strings"
+
+	json "github.com/json-iterator/go"
 )
 
 // FastContext provides a rich context for opinionated handlers

@@ -8,10 +8,9 @@ import (
 
 // Test for the new Group functionality
 func TestGroupMethods(t *testing.T) {
-	router := NewRouter()
-
 	// Test Group() method
 	t.Run("Group() method", func(t *testing.T) {
+		router := NewRouter()
 		group := router.Group()
 		if group == nil {
 			t.Error("Group() should return a non-nil Router")
@@ -38,6 +37,7 @@ func TestGroupMethods(t *testing.T) {
 
 	// Test GroupFunc() method
 	t.Run("GroupFunc() method", func(t *testing.T) {
+		router := NewRouter()
 		router.GroupFunc(func(r Router) {
 			r.GET("/groupfunc", func(w http.ResponseWriter, r *http.Request) {
 				w.Write([]byte("groupfunc"))
@@ -60,6 +60,7 @@ func TestGroupMethods(t *testing.T) {
 
 	// Test nested groups
 	t.Run("Nested groups", func(t *testing.T) {
+		router := NewRouter()
 		parentGroup := router.Group()
 		childGroup := parentGroup.Group()
 
@@ -83,6 +84,7 @@ func TestGroupMethods(t *testing.T) {
 
 	// Test middleware inheritance
 	t.Run("Middleware inheritance", func(t *testing.T) {
+		router := NewRouter()
 		middlewareCalled := false
 
 		parentGroup := router.Group()
@@ -109,6 +111,125 @@ func TestGroupMethods(t *testing.T) {
 
 		if w.Code != http.StatusOK {
 			t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
+		}
+	})
+
+	// Test Route() method with prefix
+	t.Run("Route() method with prefix", func(t *testing.T) {
+		router := NewRouter()
+
+		router.Route("/api/v1", func(r Router) {
+			r.GET("/users", func(w http.ResponseWriter, r *http.Request) {
+				w.Write([]byte("users"))
+			})
+		})
+
+		// Test the route works with prefix
+		req := httptest.NewRequest("GET", "/api/v1/users", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
+		}
+
+		if w.Body.String() != "users" {
+			t.Errorf("Expected body 'users', got %q", w.Body.String())
+		}
+	})
+
+	// Test multiple middleware layers
+	t.Run("Multiple middleware layers", func(t *testing.T) {
+		router := NewRouter()
+		var callOrder []string
+
+		// Router-level middleware
+		router.Use(func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				callOrder = append(callOrder, "router")
+				next.ServeHTTP(w, r)
+			})
+		})
+
+		// Group-level middleware
+		group := router.Group()
+		group.Use(func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				callOrder = append(callOrder, "group")
+				next.ServeHTTP(w, r)
+			})
+		})
+
+		// Nested group middleware
+		nestedGroup := group.Group()
+		nestedGroup.Use(func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				callOrder = append(callOrder, "nested")
+				next.ServeHTTP(w, r)
+			})
+		})
+
+		nestedGroup.GET("/test-order", func(w http.ResponseWriter, r *http.Request) {
+			callOrder = append(callOrder, "handler")
+			w.Write([]byte("ok"))
+		})
+
+		// Test middleware execution order
+		req := httptest.NewRequest("GET", "/test-order", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
+		}
+
+		expectedOrder := []string{"router", "group", "nested", "handler"}
+		if len(callOrder) != len(expectedOrder) {
+			t.Errorf("Expected %d middleware calls, got %d", len(expectedOrder), len(callOrder))
+		}
+
+		for i, expected := range expectedOrder {
+			if i >= len(callOrder) || callOrder[i] != expected {
+				t.Errorf("Expected middleware call %d to be '%s', got '%s'", i, expected, callOrder[i])
+			}
+		}
+	})
+}
+
+// Test for opinionated handlers in groups
+func TestGroupOpinionatedHandlers(t *testing.T) {
+	t.Run("Opinionated handlers in groups", func(t *testing.T) {
+		router := NewRouter()
+
+		type TestRequest struct {
+			ID int `path:"id"`
+		}
+
+		type TestResponse struct {
+			ID      int    `json:"id"`
+			Message string `json:"message"`
+		}
+
+		group := router.Group()
+		group.OpinionatedGET("/users/:id", func(ctx *FastContext, req TestRequest) (*TestResponse, error) {
+			return &TestResponse{
+				ID:      req.ID,
+				Message: "Hello from group",
+			}, nil
+		})
+
+		// Test the opinionated route works
+		req := httptest.NewRequest("GET", "/users/123", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
+		}
+
+		// Check content type
+		if contentType := w.Header().Get("Content-Type"); contentType != "application/json" {
+			t.Errorf("Expected Content-Type 'application/json', got %q", contentType)
 		}
 	})
 }

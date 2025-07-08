@@ -17,17 +17,29 @@ func (r *FastRouter) DebugRoutes() {
 }
 
 func (r *FastRouter) debugNode(n *node, indent string) {
-	fmt.Printf("%sPath: %q, HasHandler: %v, IsParam: %v, ParamName: %q, Wildcard: %v\n",
-		indent, n.path, n.handler != nil, n.isParam, n.paramName, n.wildcard)
-	for _, child := range n.children {
-		r.debugNode(child, indent+"  ")
-	}
+	// fmt.Printf("%sPath: %q, HasHandler: %v, IsParam: %v, ParamName: %q, Wildcard: %v\n",
+	// 	indent, n.path, n.handler != nil, n.isParam, n.paramName, n.wildcard)
+	// for _, child := range n.children {
+	// 	r.debugNode(child, indent+"  ")
+	// }
 }
 
-func intPtr(i int) *int {
-	return &i
+// float64Ptr returns a pointer to the given float64 value
+func float64Ptr(v float64) *float64 {
+	return &v
 }
 
-func float64Ptr(f float64) *float64 {
-	return &f
+// intPtr returns a pointer to the given int value
+func intPtr(v int) *int {
+	return &v
+}
+
+// stringPtr returns a pointer to the given string value
+func stringPtr(v string) *string {
+	return &v
+}
+
+// boolPtr returns a pointer to the given bool value
+func boolPtr(v bool) *bool {
+	return &v
 }

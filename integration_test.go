@@ -2,7 +2,6 @@ package forgerouter
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -12,6 +11,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	json "github.com/json-iterator/go"
 )
 
 // Integration test data structures

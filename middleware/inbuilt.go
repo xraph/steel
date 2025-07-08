@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -17,6 +16,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	json "github.com/json-iterator/go"
 	"github.com/xraph/forgerouter"
 	"golang.org/x/time/rate"
 )

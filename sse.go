@@ -1,11 +1,12 @@
 package forgerouter
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"reflect"
 	"sync"
+
+	json "github.com/json-iterator/go"
 )
 
 // SSEConnection represents a Server-Sent Events (SSE) connection, enabling bi-directional communication with a client.
