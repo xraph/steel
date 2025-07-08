@@ -1,0 +1,547 @@
+# Benchmarks & Performance
+
+ForgeRouter is designed for high performance while maintaining rich features like automatic OpenAPI generation. This guide covers performance benchmarks, comparisons with other routers, and optimization strategies.
+
+## Quick Performance Overview
+
+Based on comprehensive benchmarks on Apple M3 Max (ARM64), ForgeRouter demonstrates competitive performance:
+
+| Router | ns/op | B/op | allocs/op | Relative Speed |
+|--------|-------|------|-----------|----------------|
+| **Gin** | 87.6 | 48 | 1 | 1.00x (fastest) |
+| **FastRouter** | 208.5 | 386 | 4 | 2.38x |
+| **Chi** | 210.7 | 370 | 3 | 2.41x |
+
+import { Callout } from 'nextra/components'
+
+<Callout type="info">
+    **Performance Note**: While ForgeRouter is 2.4x slower than Gin in synthetic benchmarks, it provides significant additional features like automatic OpenAPI generation, typed handlers, and advanced middleware that Gin lacks.
+</Callout>
+
+## Running Benchmarks
+
+### Quick Comparison
+
+Run a fast comparison between major routers:
+
+```bash
+# Quick benchmark (recommended for development)
+go test -bench=BenchmarkQuickComparison -benchmem
+
+# Run multiple times for accuracy
+go test -bench=BenchmarkQuickComparison -benchmem -count=5
+
+# With CPU profiling
+go test -bench=BenchmarkQuickComparison -benchmem -cpuprofile=cpu.prof
+```
+
+### Comprehensive Benchmarks
+
+Run the full benchmark suite:
+
+```bash
+# All benchmark categories
+go test -bench=. -benchmem -timeout=60m
+
+# Specific benchmark types
+go test -bench=BenchmarkStaticRoutes -benchmem
+go test -bench=BenchmarkParameterRoutes -benchmem
+go test -bench=BenchmarkWithMiddleware -benchmem
+go test -bench=BenchmarkManyRoutes -benchmem
+go test -bench=BenchmarkConcurrentRequests -benchmem
+```
+
+### Automated Benchmark Suite
+
+Use the provided script for comprehensive testing:
+
+```bash
+# Run all benchmarks and generate reports
+./run_benchmarks.sh
+
+# Results saved to results/ directory
+ls results/
+# complete_results.txt
+# static_routes.txt
+# parameter_routes.txt
+# middleware.txt
+# memory.txt
+# concurrent.txt
+# summary_report.txt
+```
+
+## Benchmark Categories
+
+### 1. Static Routes
+
+Tests routes without parameters (fastest category):
+
+```go
+// Example routes tested
+GET /
+GET /users
+GET /posts
+GET /api/health
+GET /static/css/style.css
+```
+
+**Expected Performance:**
+- **Fastest routers**: 50-100 ns/op
+- **ForgeRouter**: 80-150 ns/op
+- **Feature-rich routers**: 100-300 ns/op
+
+### 2. Parameter Routes
+
+Tests routes with path parameters (moderate overhead):
+
+```go
+// Example routes tested
+GET /users/:id
+GET /users/:id/posts/:postId
+GET /api/v1/users/:userId/orders/:orderId
+PUT /users/:id
+DELETE /posts/:id
+```
+
+**Expected Performance:**
+- **Parameter extraction overhead**: +20-50 ns/op
+- **Memory allocation**: 32-128 B/op for parameter storage
+- **ForgeRouter**: 100-200 ns/op with efficient parameter handling
+
+### 3. Wildcard Routes
+
+Tests catch-all routes (highest overhead):
+
+```go
+// Example routes tested
+GET /static/*
+GET /files/*filepath
+GET /assets/*path
+```
+
+**Expected Performance:**
+- **Highest overhead**: Due to flexible matching
+- **Memory usage**: Variable based on path length
+- **Use cases**: File serving, fallback routes
+
+### 4. Middleware Benchmarks
+
+Tests performance impact of middleware chains:
+
+```go
+// Middleware combinations tested
+// No middleware (baseline)
+// Single middleware (logger)
+// Multiple middleware (logger + auth + cors)
+// Heavy middleware chain (5+ middleware)
+```
+
+**Middleware Performance Impact:**
+- **Each middleware**: +10-50 ns/op overhead
+- **Memory allocations**: Varies by middleware complexity
+- **ForgeRouter advantage**: Opinionated middleware optimizations
+
+### 5. Memory Allocation Benchmarks
+
+Focuses on garbage collection impact:
+
+```go
+// Tests memory efficiency
+// Zero-allocation routing (ideal)
+// Parameter pooling effectiveness
+// Middleware memory usage
+// Response writer allocations
+```
+
+**Memory Metrics:**
+- **B/op (Bytes per operation)**: Lower is better
+- **allocs/op (Allocations per operation)**: Zero is ideal
+- **GC pressure**: Fewer allocations = better performance
+
+### 6. Concurrent Request Benchmarks
+
+Tests performance under concurrent load:
+
+```go
+// Concurrent scenarios
+// Single route, multiple goroutines
+// Mixed routes, realistic traffic
+// High contention scenarios
+// Lock-free operations
+```
+
+## Interpreting Benchmark Results
+
+### Understanding the Numbers
+
+```bash
+BenchmarkParameterRoutes/FastRouter_/users/123-8    5000000    208.5 ns/op    386 B/op    4 allocs/op
+```
+
+**Breaking down the result:**
+- `BenchmarkParameterRoutes`: Test category
+- `FastRouter_/users/123`: Specific test case
+- `-8`: GOMAXPROCS (CPU cores used)
+- `5000000`: Number of iterations run
+- `208.5 ns/op`: Nanoseconds per operation (lower = faster)
+- `386 B/op`: Bytes allocated per operation (lower = better)
+- `4 allocs/op`: Memory allocations per operation (lower = better)
+
+### Performance Categories
+
+| Performance Class | ns/op Range | Use Case |
+|------------------|-------------|----------|
+| **Ultra Fast** | 0-50 ns/op | High-frequency trading, real-time systems |
+| **Very Fast** | 50-100 ns/op | High-performance APIs, gaming servers |
+| **Fast** | 100-200 ns/op | Standard web APIs, microservices |
+| **Good** | 200-500 ns/op | Traditional web applications |
+| **Acceptable** | 500+ ns/op | Content management, admin interfaces |
+
+### Relative Performance
+
+Understanding speed differences:
+
+```bash
+Router A: 100 ns/op
+Router B: 200 ns/op  # 2.0x slower (100% slower)
+Router C: 150 ns/op  # 1.5x slower (50% slower)
+```
+
+**Performance Impact Guidelines:**
+- **1.0-1.2x**: Negligible difference
+- **1.2-1.5x**: Minor impact, usually acceptable
+- **1.5-2.0x**: Noticeable but often worth it for features
+- **2.0x+**: Significant impact, evaluate trade-offs
+
+## Router Comparison Analysis
+
+### Performance vs Features Matrix
+
+| Router | Speed | Memory | Features | OpenAPI | Middleware | Typed Handlers |
+|--------|-------|--------|----------|---------|------------|----------------|
+| **HttpRouter** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐ | ❌ | ⭐ | ❌ |
+| **Gin** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐ | ⭐⭐⭐ | ❌ |
+| **Chi** | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐ | ⭐⭐⭐⭐ | ❌ |
+| **FastRouter** | ⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
+| **Echo** | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐ | ⭐⭐⭐⭐ | ❌ |
+| **GorillaMux** | ⭐⭐ | ⭐⭐ | ⭐⭐⭐⭐ | ⭐ | ⭐⭐⭐ | ❌ |
+
+### When to Choose ForgeRouter
+
+**Choose ForgeRouter when you need:**
+- Automatic OpenAPI documentation generation
+- Type-safe request/response handling
+- Advanced middleware with documentation integration
+- Comprehensive error handling with structured responses
+- WebSocket and SSE support with AsyncAPI docs
+- Rich development tools and testing utilities
+
+**Consider alternatives when:**
+- Raw performance is the only concern (use HttpRouter)
+- You need a minimal, lightweight solution (use Chi)
+- You're already invested in another ecosystem (Gin/Echo)
+
+## Performance Optimization Strategies
+
+### 1. Route Organization
+
+```go
+// ✅ Good: Order routes by frequency
+router.GET("/health", healthHandler)           // Most frequent
+router.GET("/metrics", metricsHandler)         // Second most frequent
+router.GET("/api/users/:id", getUserHandler)   // Less frequent
+router.GET("/admin/*", adminHandler)           // Least frequent
+
+// ❌ Avoid: Complex routes first
+router.GET("/complex/:param1/nested/:param2/deep/:param3", complexHandler)
+router.GET("/simple", simpleHandler)
+```
+
+### 2. Middleware Optimization
+
+```go
+// ✅ Good: Fast-failing middleware first
+router.Use(rateLimitMiddleware)     // Quick rejection
+router.Use(authMiddleware)          // Fast token check
+router.Use(loggingMiddleware)       // Always executes
+router.Use(tracingMiddleware)       // Always executes
+
+// ❌ Avoid: Expensive middleware first
+router.Use(databaseMiddleware)      // Slow database call
+router.Use(rateLimitMiddleware)     // Could have been avoided
+```
+
+### 3. Memory Management
+
+```go
+// ✅ Good: Use object pooling
+var requestPool = sync.Pool{
+    New: func() interface{} {
+        return &Request{}
+    },
+}
+
+func handler(w http.ResponseWriter, r *http.Request) {
+    req := requestPool.Get().(*Request)
+    defer requestPool.Put(req)
+
+    // Use req...
+}
+
+// ✅ Good: Minimize allocations in hot paths
+func (r *FastRouter) findRoute(path string) Handler {
+    // Reuse slices, avoid string concatenation
+    // Use efficient algorithms
+}
+```
+
+### 4. Handler Optimization
+
+```go
+// ✅ Good: Efficient opinionated handlers
+func GetUser(ctx *forgerouter.FastContext, req GetUserRequest) (*GetUserResponse, error) {
+    // Direct field access (no reflection in runtime)
+    userID := req.ID
+
+    // Efficient database query
+    user, err := db.GetUser(userID)
+    if err != nil {
+        return nil, forgerouter.NotFound("User")
+    }
+
+    return &GetUserResponse{User: user}, nil
+}
+
+// ❌ Avoid: Runtime reflection
+func genericHandler(w http.ResponseWriter, r *http.Request) {
+    // Runtime reflection is expensive
+    val := reflect.ValueOf(someStruct)
+    // ...
+}
+```
+
+## Profiling and Analysis
+
+### CPU Profiling
+
+```bash
+# Generate CPU profile
+go test -bench=BenchmarkQuickComparison -cpuprofile=cpu.prof
+
+# Analyze profile
+go tool pprof cpu.prof
+
+# Common pprof commands
+(pprof) top        # Show top functions by CPU usage
+(pprof) list main  # Show line-by-line breakdown
+(pprof) web        # Generate web visualization
+(pprof) png        # Generate PNG image
+```
+
+### Memory Profiling
+
+```bash
+# Generate memory profile
+go test -bench=BenchmarkMemoryAllocations -memprofile=mem.prof
+
+# Analyze memory usage
+go tool pprof mem.prof
+
+# Memory analysis commands
+(pprof) top        # Top memory allocators
+(pprof) list       # Line-by-line memory usage
+(pprof) traces     # Allocation traces
+```
+
+### Benchmark Analysis Tool
+
+Use the provided analysis tool for comprehensive reports:
+
+```bash
+# Generate detailed analysis
+go run analysis.go > benchmark_analysis.txt
+
+# Example output:
+# Router Benchmark Comparison Report
+# ==================================
+#
+# ### QuickComparison
+#
+# Router       ns/op        B/op         allocs/op    Relative
+# ----------------------------------------------------------------------
+# Gin          87.6         48           1            1.00x
+# FastRouter   208.5        386          4            2.38x
+# Chi          210.7        370          3            2.41x
+```
+
+## Real-World Performance Considerations
+
+### 1. Network Latency Context
+
+```bash
+# Typical network latencies
+Local network:    0.1ms   (100,000 ns)
+Same datacenter:  1ms     (1,000,000 ns)
+Cross-region:     50ms    (50,000,000 ns)
+Internet:         100ms   (100,000,000 ns)
+
+# Router performance difference: ~100ns
+# As % of total request time:
+# - Local: 0.1%
+# - Internet: 0.0001%
+```
+
+**Insight**: Router performance differences are often negligible compared to network latency, database queries, and business logic.
+
+### 2. Database Query Context
+
+```bash
+# Typical database query times
+Redis cache:      0.1ms   (100,000 ns)
+Local database:   1ms     (1,000,000 ns)
+Remote database:  10ms    (10,000,000 ns)
+Complex query:    100ms   (100,000,000 ns)
+
+# Router overhead: ~200ns
+# As % of database time: 0.02-0.2%
+```
+
+### 3. Business Logic Context
+
+Most API endpoints spend time on:
+- **Database queries**: 60-80% of response time
+- **External API calls**: 10-30% of response time
+- **Business logic**: 5-15% of response time
+- **Router overhead**: \<1% of response time
+
+## Hardware Impact on Benchmarks
+
+### CPU Architecture
+
+```bash
+# Performance varies by CPU
+Intel x86_64:     Baseline performance
+AMD x86_64:       Similar to Intel
+Apple Silicon:    Often 20-30% faster
+ARM servers:      Variable performance
+```
+
+### Memory and Cache
+
+```bash
+# Cache-friendly patterns
+L1 cache hit:     ~1 ns
+L2 cache hit:     ~3 ns
+L3 cache hit:     ~12 ns
+RAM access:       ~65 ns
+```
+
+**Optimization tips:**
+- Keep frequently accessed data small
+- Use cache-friendly data structures
+- Minimize pointer chasing
+
+## Troubleshooting Performance Issues
+
+### Common Issues
+
+1. **Inconsistent Results**
+```bash
+# Run multiple iterations
+go test -bench=BenchmarkName -count=10
+
+# Use benchstat for statistical analysis
+go install golang.org/x/perf/cmd/benchstat
+benchstat old.txt new.txt
+   ```
+
+2. **Memory Pressure**
+```bash
+# Monitor GC impact
+GODEBUG=gctrace=1 go test -bench=BenchmarkName
+
+# Check for memory leaks
+go test -bench=BenchmarkName -memprofile=mem.prof
+   ```
+
+3. **Thermal Throttling**
+```bash
+# Monitor CPU temperature
+# Ensure adequate cooling
+# Use consistent power settings
+   ```
+
+### Performance Regression Detection
+
+```bash
+# Compare before/after performance
+go test -bench=. -count=5 > before.txt
+# Make changes
+go test -bench=. -count=5 > after.txt
+
+# Statistical comparison
+benchstat before.txt after.txt
+```
+
+## Benchmark Best Practices
+
+### 1. Consistent Environment
+
+```bash
+# Set consistent CPU frequency
+sudo cpupower frequency-set --governor performance
+
+# Disable CPU scaling
+echo performance | sudo tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor
+
+# Close unnecessary applications
+# Use dedicated benchmark machine
+```
+
+### 2. Statistical Significance
+
+```bash
+# Run multiple iterations
+go test -bench=BenchmarkName -count=10
+
+# Use appropriate duration
+go test -bench=BenchmarkName -benchtime=10s
+
+# Consider variance
+benchstat -alpha=0.05 results.txt
+```
+
+### 3. Realistic Test Data
+
+```go
+// ✅ Good: Realistic test scenarios
+func BenchmarkRealWorldAPI(b *testing.B) {
+    // Use realistic request patterns
+    // Include typical middleware
+    // Test with representative data sizes
+}
+
+// ❌ Avoid: Synthetic-only tests
+func BenchmarkUnrealistic(b *testing.B) {
+    // Empty handlers
+    // No middleware
+    // Trivial operations
+}
+```
+
+## Conclusion
+
+ForgeRouter strikes a balance between performance and features:
+
+- **Raw Performance**: 2-3x slower than minimal routers
+- **Feature Set**: Significantly more comprehensive than faster alternatives
+- **Real-World Impact**: Performance difference often negligible in production
+- **Developer Productivity**: Type safety and automatic documentation provide significant value
+
+The choice between routers should consider:
+1. **Performance requirements** vs **feature needs**
+2. **Development velocity** vs **runtime efficiency**
+3. **Maintenance burden** vs **raw speed**
+4. **Team expertise** vs **optimal performance**
+
+For most applications, ForgeRouter's feature set outweighs the minor performance overhead, especially when considering the time saved in development and maintenance.

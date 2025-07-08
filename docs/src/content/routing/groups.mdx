@@ -1,0 +1,455 @@
+# Group Routes
+
+Route groups in ForgeRouter provide a powerful way to organize related routes and apply middleware to multiple routes at once. Groups support nested hierarchies, middleware inheritance, and clean URL patterns.
+
+## Basic Route Groups
+
+### Creating Groups
+
+ForgeRouter provides two methods for creating route groups:
+
+```go
+// Method 1: Create a group and use it
+group := router.Group()
+group.GET("/users", getUsersHandler)
+group.POST("/users", createUserHandler)
+
+// Method 2: Create a group with a function (cleaner syntax)
+router.GroupFunc(func(r router.Router) {
+    r.GET("/users", getUsersHandler)
+    r.POST("/users", createUserHandler)
+})
+```
+
+### Route Patterns with Groups
+
+Use the `Route()` method to create groups with URL prefixes:
+
+```go
+router.Route("/api/v1", func(api router.Router) {
+    api.GET("/users", getUsersHandler)        // GET /api/v1/users
+    api.POST("/users", createUserHandler)     // POST /api/v1/users
+    api.GET("/users/:id", getUserHandler)     // GET /api/v1/users/:id
+    api.PUT("/users/:id", updateUserHandler)  // PUT /api/v1/users/:id
+    api.DELETE("/users/:id", deleteUserHandler) // DELETE /api/v1/users/:id
+})
+```
+
+## Nested Groups
+
+Groups can be nested to create hierarchical route structures:
+
+```go
+router.Route("/api", func(api router.Router) {
+    // Version 1 API
+    api.Route("/v1", func(v1 router.Router) {
+        v1.GET("/users", v1GetUsersHandler)
+        v1.POST("/users", v1CreateUserHandler)
+
+        // Admin routes in v1
+        v1.Route("/admin", func(admin router.Router) {
+            admin.GET("/stats", v1AdminStatsHandler) // GET /api/v1/admin/stats
+            admin.GET("/users", v1AdminUsersHandler) // GET /api/v1/admin/users
+        })
+    })
+
+    // Version 2 API
+    api.Route("/v2", func(v2 router.Router) {
+        v2.GET("/users", v2GetUsersHandler)
+        v2.POST("/users", v2CreateUserHandler)
+
+        // New features in v2
+        v2.Route("/analytics", func(analytics router.Router) {
+            analytics.GET("/reports", analyticsReportsHandler)
+            analytics.POST("/events", analyticsEventsHandler)
+        })
+    })
+})
+```
+
+## Middleware with Groups
+
+### Group-Level Middleware
+
+Apply middleware to all routes within a group:
+
+```go
+router.Route("/api", func(api router.Router) {
+    // Middleware applied to all /api/* routes
+    api.Use(corsMiddleware)
+    api.Use(jsonContentTypeMiddleware)
+    api.Use(rateLimitMiddleware)
+
+    api.GET("/health", healthHandler)
+    api.GET("/status", statusHandler)
+})
+```
+
+### Middleware Inheritance
+
+Child groups inherit middleware from parent groups:
+
+```go
+router.Route("/api", func(api router.Router) {
+    // Applied to all API routes
+    api.Use(corsMiddleware)
+    api.Use(rateLimitMiddleware)
+
+    // Public endpoints
+    api.GET("/health", healthHandler)
+
+    // Protected endpoints inherit parent middleware
+    api.Route("/protected", func(protected router.Router) {
+        // Additional middleware only for protected routes
+        protected.Use(authMiddleware)
+        protected.Use(rbacMiddleware)
+
+        protected.GET("/profile", getProfileHandler)
+        protected.POST("/data", createDataHandler)
+
+        // Admin endpoints inherit all parent middleware
+        protected.Route("/admin", func(admin router.Router) {
+            admin.Use(adminOnlyMiddleware)
+
+            admin.GET("/users", adminGetUsersHandler)
+            admin.DELETE("/users/:id", adminDeleteUserHandler)
+        })
+    })
+})
+```
+
+### Middleware Execution Order
+
+Middleware executes in the order it's applied through the group hierarchy:
+
+```go
+router.Use(globalMiddleware)               // 1st: Global middleware
+
+router.Route("/api", func(api router.Router) {
+    api.Use(apiMiddleware)                 // 2nd: API middleware
+
+    api.Route("/v1", func(v1 router.Router) {
+        v1.Use(versionMiddleware)          // 3rd: Version middleware
+
+        v1.Route("/admin", func(admin router.Router) {
+            admin.Use(adminMiddleware)     // 4th: Admin middleware
+
+            admin.GET("/users", handler)   // Handler executes last
+        })
+    })
+})
+
+// Execution order for GET /api/v1/admin/users:
+// globalMiddleware -> apiMiddleware -> versionMiddleware -> adminMiddleware -> handler
+```
+
+## Real-World Examples
+
+### RESTful API Structure
+
+```go
+func setupAPI(router *forgerouter.FastRouter) {
+    // Global middleware
+    router.Use(forgerouter.Logger)
+    router.Use(forgerouter.Recoverer)
+    router.Use(corsMiddleware())
+
+    // API v1
+    router.Route("/api/v1", func(api router.Router) {
+        // API-wide middleware
+        api.Use(requestIDMiddleware)
+        api.Use(rateLimitMiddleware(100)) // 100 requests per minute
+
+        // Public routes
+        api.POST("/auth/login", loginHandler)
+        api.POST("/auth/register", registerHandler)
+        api.GET("/health", healthHandler)
+
+        // User routes
+        api.Route("/users", func(users router.Router) {
+            users.GET("/", listUsersHandler)           // GET /api/v1/users
+            users.GET("/:id", getUserHandler)          // GET /api/v1/users/:id
+
+            // Protected user operations
+            users.Route("/", func(protected router.Router) {
+                protected.Use(authMiddleware)
+                protected.POST("/", createUserHandler)      // POST /api/v1/users
+                protected.PUT("/:id", updateUserHandler)    // PUT /api/v1/users/:id
+                protected.DELETE("/:id", deleteUserHandler) // DELETE /api/v1/users/:id
+            })
+        })
+
+        // Posts routes
+        api.Route("/posts", func(posts router.Router) {
+            posts.GET("/", listPostsHandler)          // GET /api/v1/posts
+            posts.GET("/:id", getPostHandler)         // GET /api/v1/posts/:id
+
+            // Protected post operations
+            posts.Route("/", func(protected router.Router) {
+                protected.Use(authMiddleware)
+                protected.POST("/", createPostHandler)      // POST /api/v1/posts
+                protected.PUT("/:id", updatePostHandler)    // PUT /api/v1/posts/:id
+                protected.DELETE("/:id", deletePostHandler) // DELETE /api/v1/posts/:id
+
+                // Comments on posts
+                protected.Route("/:postId/comments", func(comments router.Router) {
+                    comments.GET("/", getCommentsHandler)       // GET /api/v1/posts/:postId/comments
+                    comments.POST("/", createCommentHandler)    // POST /api/v1/posts/:postId/comments
+                    comments.DELETE("/:id", deleteCommentHandler) // DELETE /api/v1/posts/:postId/comments/:id
+                })
+            })
+        })
+
+        // Admin routes
+        api.Route("/admin", func(admin router.Router) {
+            admin.Use(authMiddleware)
+            admin.Use(adminMiddleware)
+            admin.Use(auditLogMiddleware)
+
+            admin.GET("/dashboard", dashboardHandler)
+            admin.GET("/analytics", analyticsHandler)
+
+            // User management
+            admin.Route("/users", func(userMgmt router.Router) {
+                userMgmt.GET("/", adminListUsersHandler)
+                userMgmt.POST("/:id/ban", banUserHandler)
+                userMgmt.POST("/:id/unban", unbanUserHandler)
+                userMgmt.DELETE("/:id", adminDeleteUserHandler)
+            })
+
+            // System management
+            admin.Route("/system", func(system router.Router) {
+                system.GET("/stats", systemStatsHandler)
+                system.POST("/maintenance", maintenanceModeHandler)
+                system.GET("/logs", getLogsHandler)
+            })
+        })
+    })
+}
+```
+
+### Multi-Tenant Application
+
+```go
+func setupMultiTenantAPI(router *forgerouter.FastRouter) {
+    router.Use(forgerouter.Logger)
+    router.Use(forgerouter.Recoverer)
+
+    // Tenant-specific routes
+    router.Route("/tenant/:tenantId", func(tenant router.Router) {
+        // Tenant resolution middleware
+        tenant.Use(tenantMiddleware)
+        tenant.Use(tenantAuthMiddleware)
+
+        // API versioning per tenant
+        tenant.Route("/api/v1", func(api router.Router) {
+            api.Use(apiVersionMiddleware("v1"))
+
+            // Core resources
+            api.Route("/projects", func(projects router.Router) {
+                projects.GET("/", listProjectsHandler)
+                projects.POST("/", createProjectHandler)
+                projects.GET("/:id", getProjectHandler)
+                projects.PUT("/:id", updateProjectHandler)
+                projects.DELETE("/:id", deleteProjectHandler)
+
+                // Project-specific resources
+                projects.Route("/:projectId", func(project router.Router) {
+                    project.Use(projectAccessMiddleware)
+
+                    project.Route("/tasks", func(tasks router.Router) {
+                        tasks.GET("/", listTasksHandler)
+                        tasks.POST("/", createTaskHandler)
+                        tasks.PUT("/:taskId", updateTaskHandler)
+                        tasks.DELETE("/:taskId", deleteTaskHandler)
+                    })
+
+                    project.Route("/members", func(members router.Router) {
+                        members.GET("/", listMembersHandler)
+                        members.POST("/", addMemberHandler)
+                        members.DELETE("/:userId", removeMemberHandler)
+                    })
+                })
+            })
+        })
+
+        // Tenant admin routes
+        tenant.Route("/admin", func(admin router.Router) {
+            admin.Use(tenantAdminMiddleware)
+
+            admin.GET("/settings", getTenantSettingsHandler)
+            admin.PUT("/settings", updateTenantSettingsHandler)
+            admin.GET("/billing", getBillingHandler)
+            admin.GET("/usage", getUsageStatsHandler)
+        })
+    })
+}
+```
+
+### Microservice Gateway Pattern
+
+```go
+func setupGateway(router *forgerouter.FastRouter) {
+    router.Use(forgerouter.Logger)
+    router.Use(forgerouter.Recoverer)
+    router.Use(corsMiddleware())
+
+    // Service routing with middleware
+    services := map[string]string{
+        "users":    "http://user-service:8080",
+        "posts":    "http://post-service:8080",
+        "comments": "http://comment-service:8080",
+        "media":    "http://media-service:8080",
+    }
+
+    router.Route("/api/v1", func(api router.Router) {
+        // Gateway middleware
+        api.Use(requestIDMiddleware)
+        api.Use(authMiddleware)
+        api.Use(rateLimitMiddleware(1000))
+
+        // Route to each service
+        for serviceName, serviceURL := range services {
+            api.Route("/"+serviceName, func(service router.Router) {
+                // Service-specific middleware
+                service.Use(serviceDiscoveryMiddleware(serviceName))
+                service.Use(circuitBreakerMiddleware(serviceName))
+                service.Use(retryMiddleware(3))
+
+                // Proxy all requests to the service
+                service.Handle("GET", "/*", proxyHandler(serviceURL))
+                service.Handle("POST", "/*", proxyHandler(serviceURL))
+                service.Handle("PUT", "/*", proxyHandler(serviceURL))
+                service.Handle("DELETE", "/*", proxyHandler(serviceURL))
+                service.Handle("PATCH", "/*", proxyHandler(serviceURL))
+            })
+        }
+
+        // Gateway-specific routes
+        api.Route("/gateway", func(gw router.Router) {
+            gw.GET("/health", gatewayHealthHandler)
+            gw.GET("/metrics", gatewayMetricsHandler)
+            gw.GET("/services", listServicesHandler)
+        })
+    })
+}
+```
+
+## Opinionated Groups with OpenAPI
+
+Groups work seamlessly with opinionated handlers and contribute to OpenAPI documentation:
+
+```go
+router.Route("/api/v1", func(api router.Router) {
+    api.Route("/users", func(users router.Router) {
+        // OpenAPI documentation is automatically grouped
+        users.OpinionatedGET("/", func(ctx *forgerouter.FastContext, req ListUsersRequest) (*ListUsersResponse, error) {
+            // Implementation
+            return &ListUsersResponse{}, nil
+        }, forgerouter.WithSummary("List Users"), forgerouter.WithTags("users"))
+
+        users.OpinionatedPOST("/", func(ctx *forgerouter.FastContext, req CreateUserRequest) (*CreateUserResponse, error) {
+            // Implementation
+            return &CreateUserResponse{}, nil
+        }, forgerouter.WithSummary("Create User"), forgerouter.WithTags("users"))
+
+        users.OpinionatedGET("/:id", func(ctx *forgerouter.FastContext, req GetUserRequest) (*GetUserResponse, error) {
+            // Implementation
+            return &GetUserResponse{}, nil
+        }, forgerouter.WithSummary("Get User"), forgerouter.WithTags("users"))
+    })
+})
+```
+
+## Mounting External Handlers
+
+Mount existing HTTP handlers or entire applications:
+
+```go
+// Mount static file server
+router.Mount("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("./public"))))
+
+// Mount another router or framework
+adminRouter := setupAdminRouter()
+router.Mount("/admin/", adminRouter)
+
+// Mount with middleware
+router.Route("/legacy", func(legacy router.Router) {
+    legacy.Use(legacyCompatibilityMiddleware)
+    legacy.Mount("/app/", legacyAppHandler)
+})
+```
+
+## Testing Route Groups
+
+Test route groups by creating isolated test routers:
+
+```go
+func TestUserRoutes(t *testing.T) {
+    router := forgerouter.NewRouter()
+
+    // Set up the user routes group
+    router.Route("/api/v1/users", func(users router.Router) {
+        users.Use(testAuthMiddleware) // Use test middleware
+        users.GET("/", listUsersHandler)
+        users.POST("/", createUserHandler)
+        users.GET("/:id", getUserHandler)
+    })
+
+    tests := []struct {
+        name           string
+        method         string
+        path           string
+        expectedStatus int
+    }{
+        {"List users", "GET", "/api/v1/users", 200},
+        {"Create user", "POST", "/api/v1/users", 201},
+        {"Get user", "GET", "/api/v1/users/123", 200},
+        {"Not found", "GET", "/api/v1/users/nonexistent", 404},
+    }
+
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            req := httptest.NewRequest(tt.method, tt.path, nil)
+            w := httptest.NewRecorder()
+
+            router.ServeHTTP(w, req)
+
+            if w.Code != tt.expectedStatus {
+                t.Errorf("Expected status %d, got %d", tt.expectedStatus, w.Code)
+            }
+        })
+    }
+}
+```
+
+## Performance Considerations
+
+import { Callout } from 'nextra/components'
+
+<Callout type="info">
+    **Performance Tip**: Group related routes together and order middleware by frequency of execution and early termination potential.
+</Callout>
+
+### Efficient Group Organization
+
+```go
+// ✅ Good: Organize by access patterns
+router.Route("/api", func(api router.Router) {
+    // Fast, frequently accessed endpoints first
+    api.GET("/health", healthHandler)
+    api.GET("/metrics", metricsHandler)
+
+    // Authenticated endpoints with heavier middleware
+    api.Route("/auth", func(auth router.Router) {
+        auth.Use(authMiddleware)
+        auth.Use(auditMiddleware)
+
+        // Group by resource for cache locality
+        auth.Route("/users", userRoutes)
+        auth.Route("/posts", postRoutes)
+    })
+})
+```
+
+Route groups in ForgeRouter provide a clean, hierarchical way to organize your API while maintaining middleware inheritance and generating comprehensive OpenAPI documentation.

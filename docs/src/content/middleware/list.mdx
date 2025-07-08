@@ -1,0 +1,629 @@
+# Available Middleware
+
+ForgeRouter provides a comprehensive set of built-in middleware for common web application needs. Each middleware is available in both standard and opinionated versions, with the opinionated versions contributing to OpenAPI documentation.
+
+## Core Middleware
+
+### Logger
+
+Logs HTTP requests with method, path, and duration.
+
+```go
+import "github.com/xraph/forgerouter"
+
+// Standard version
+router.Use(forgerouter.Logger)
+
+// Usage example
+router := forgerouter.NewRouter()
+router.Use(forgerouter.Logger)
+
+router.GET("/users", getUsersHandler)
+
+// Output: GET /users 1.234ms
+```
+
+### Recoverer
+
+Recovers from panics and returns a 500 Internal Server Error response.
+
+```go
+// Standard version
+router.Use(forgerouter.Recoverer)
+
+// Usage example
+router := forgerouter.NewRouter()
+router.Use(forgerouter.Recoverer)
+
+router.GET("/panic", func(w http.ResponseWriter, r *http.Request) {
+    panic("Something went wrong!")
+    // Returns 500 Internal Server Error instead of crashing
+})
+```
+
+### Timeout
+
+Sets a timeout for request processing.
+
+```go
+// Standard version with 30-second timeout
+router.Use(forgerouter.Timeout(30 * time.Second))
+
+// Usage example
+router := forgerouter.NewRouter()
+router.Use(forgerouter.Timeout(5 * time.Second))
+
+router.GET("/slow", func(w http.ResponseWriter, r *http.Request) {
+    select {
+    case <-time.After(10 * time.Second):
+        w.Write([]byte("This will timeout"))
+    case <-r.Context().Done():
+        // Request timed out
+        return
+    }
+})
+```
+
+## Security Middleware
+
+### CORS (Cross-Origin Resource Sharing)
+
+Handles cross-origin requests with configurable policies.
+
+```go
+import "github.com/xraph/forgerouter/middleware"
+
+// Default CORS configuration
+router.Use(middleware.CORS())
+
+// Custom CORS configuration
+corsConfig := middleware.CORSConfig{
+    AllowedOrigins:     []string{"https://myapp.com", "https://api.myapp.com"},
+    AllowedMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+    AllowedHeaders:     []string{"Content-Type", "Authorization", "X-API-Key"},
+    ExposedHeaders:     []string{"X-Total-Count"},
+    AllowCredentials:   true,
+    MaxAge:             86400, // 24 hours
+    OptionsPassthrough: false,
+}
+router.Use(middleware.CORS(corsConfig))
+
+// Opinionated version (contributes to OpenAPI)
+router.UseOpinionated(middleware.OpinionatedCORS(corsConfig))
+```
+
+**Configuration Options:**
+
+- `AllowedOrigins`: List of allowed origins or `["*"]` for any origin
+- `AllowedMethods`: HTTP methods to allow
+- `AllowedHeaders`: Request headers to allow
+- `ExposedHeaders`: Response headers to expose to the client
+- `AllowCredentials`: Whether to allow credentials (cookies, authorization headers)
+- `MaxAge`: How long browsers can cache preflight results
+- `OptionsPassthrough`: Whether to pass OPTIONS requests to the next handler
+
+### Security Headers
+
+Adds common security headers to responses.
+
+```go
+// Default security headers
+router.Use(middleware.SecureHeaders())
+
+// Custom security configuration
+securityConfig := middleware.SecurityConfig{
+    XSSProtection:         "1; mode=block",
+    ContentTypeNosniff:    true,
+    XFrameOptions:         "DENY",
+    HSTSMaxAge:            31536000, // 1 year
+    HSTSIncludeSubdomains: true,
+    HSTSPreload:           true,
+    ContentSecurityPolicy: "default-src 'self'; script-src 'self' 'unsafe-inline'",
+    ReferrerPolicy:        "strict-origin-when-cross-origin",
+    PermissionsPolicy:     "camera=(), microphone=(), geolocation=()",
+}
+router.Use(middleware.SecureHeaders(securityConfig))
+```
+
+**Headers Added:**
+
+- `X-XSS-Protection`: XSS protection for older browsers
+- `X-Content-Type-Options`: Prevents MIME type sniffing
+- `X-Frame-Options`: Prevents clickjacking attacks
+- `Strict-Transport-Security`: Enforces HTTPS connections
+- `Content-Security-Policy`: Controls resource loading
+- `Referrer-Policy`: Controls referrer information
+- `Permissions-Policy`: Controls browser feature access
+
+### JWT Authentication
+
+Validates JWT tokens and extracts user information.
+
+```go
+// JWT configuration
+jwtConfig := middleware.JWTConfig{
+    SigningKey:    []byte("your-secret-key"),
+    SigningMethod: jwt.SigningMethodHS256,
+    TokenLookup:   "header:Authorization", // or "query:token" or "cookie:jwt"
+    AuthScheme:    "Bearer",
+    Claims:        jwt.MapClaims{},
+    ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
+        http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
+    },
+}
+
+// Standard version
+router.Use(middleware.JWT(jwtConfig))
+
+// Opinionated version (contributes to OpenAPI security)
+router.UseOpinionated(middleware.OpinionatedJWT(jwtConfig))
+
+// Register JWT security scheme for OpenAPI
+router.RegisterSecurityScheme("JWTAuth", forgerouter.BearerAuth(
+    "JWT Bearer token authentication",
+    "JWT",
+))
+```
+
+**Token Lookup Options:**
+
+- `header:Authorization`: Look for token in Authorization header
+- `query:token`: Look for token in query parameter
+- `cookie:jwt`: Look for token in cookie
+
+## Rate Limiting
+
+Prevents abuse by limiting request rates per client.
+
+```go
+// Rate limiting configuration
+rateLimitConfig := middleware.RateLimitConfig{
+    RequestsPerSecond: 10,    // 10 requests per second
+    BurstSize:         20,    // Allow bursts up to 20 requests
+    KeyFunc: func(r *http.Request) string {
+        // Custom key function (defaults to IP address)
+        return r.Header.Get("X-API-Key")
+    },
+    OnLimitReached: func(w http.ResponseWriter, r *http.Request) {
+        http.Error(w, "Rate limit exceeded", http.StatusTooManyRequests)
+    },
+    SkipFunc: func(r *http.Request) bool {
+        // Skip rate limiting for admin users
+        return r.Header.Get("X-Admin") == "true"
+    },
+}
+
+// Standard version
+router.Use(middleware.RateLimit(rateLimitConfig))
+
+// Opinionated version (contributes to OpenAPI)
+router.UseOpinionated(middleware.OpinionatedRateLimit(rateLimitConfig))
+```
+
+**Features:**
+
+- Per-IP rate limiting by default
+- Custom key functions for different limiting strategies
+- Configurable burst sizes
+- Skip functions for exempting certain requests
+- In-memory storage with automatic cleanup
+- Pluggable storage backends
+
+## Request Context Middleware
+
+### Request ID
+
+Generates and tracks unique request identifiers.
+
+```go
+// Default configuration
+router.Use(middleware.RequestID())
+
+// Custom configuration
+requestIDConfig := middleware.RequestIDConfig{
+    HeaderName:    "X-Request-ID",
+    Generator:     func() string { return uuid.New().String() },
+    ForceGenerate: false, // Don't override existing request IDs
+}
+router.Use(middleware.RequestID(requestIDConfig))
+
+// Opinionated version
+router.UseOpinionated(middleware.OpinionatedRequestID(requestIDConfig))
+
+// Access request ID in handlers
+func myHandler(w http.ResponseWriter, r *http.Request) {
+    requestID := r.Context().Value("request_id").(string)
+    fmt.Printf("Processing request: %s", requestID)
+}
+```
+
+## Performance Middleware
+
+### Compression
+
+Compresses response bodies to reduce bandwidth usage.
+
+```go
+// Default compression
+router.Use(middleware.Compression())
+
+// Custom compression configuration
+compressionConfig := middleware.CompressionConfig{
+    Level:     gzip.BestCompression,
+    MinLength: 1024, // Only compress responses >= 1KB
+    Types: []string{
+        "text/html",
+        "text/css",
+        "text/javascript",
+        "application/json",
+        "application/xml",
+    },
+}
+router.Use(middleware.Compression(compressionConfig))
+```
+
+**Features:**
+
+- Gzip compression for supported content types
+- Configurable compression levels
+- Minimum size thresholds
+- Content-type filtering
+- Automatic `Content-Encoding` headers
+
+### Body Size Limit
+
+Limits the size of request bodies to prevent memory exhaustion.
+
+```go
+// 10MB limit
+router.Use(middleware.BodyLimit(10 << 20))
+
+// With custom configuration
+bodyLimitConfig := middleware.BodyLimitConfig{
+    Limit: 5 << 20, // 5MB
+    SkipFunc: func(r *http.Request) bool {
+        // Skip limit for file upload endpoints
+        return strings.HasPrefix(r.URL.Path, "/upload")
+    },
+}
+router.Use(middleware.BodyLimit(5<<20, bodyLimitConfig))
+```
+
+## Advanced Middleware
+
+### Circuit Breaker
+
+Prevents cascading failures by temporarily disabling failing services.
+
+```go
+// Circuit breaker configuration
+circuitConfig := middleware.CircuitBreakerConfig{
+    MaxRequests:   3,                    // Max requests in half-open state
+    Interval:      60 * time.Second,     // Reset interval
+    Timeout:       30 * time.Second,     // Open state timeout
+    ReadyToTrip: func(counts middleware.Counts) bool {
+        return counts.ConsecutiveFailures > 5
+    },
+    OnStateChange: func(name string, from, to middleware.State) {
+        log.Printf("Circuit breaker %s: %v -> %v", name, from, to)
+    },
+    IsSuccessful: func(err error) bool {
+        return err == nil
+    },
+}
+
+router.Use(middleware.CircuitBreakerMiddleware(circuitConfig))
+```
+
+**States:**
+
+- **Closed**: Normal operation, requests flow through
+- **Open**: Circuit is tripped, requests fail fast
+- **Half-Open**: Testing if service has recovered
+
+### Metrics Collection
+
+Collects request metrics for monitoring and analytics.
+
+```go
+// Create metrics instance
+metrics := middleware.NewMetrics()
+
+// Metrics configuration
+metricsConfig := middleware.MetricsConfig{
+    Namespace: "myapp",
+    Subsystem: "api",
+    SkipFunc: func(r *http.Request) bool {
+        return r.URL.Path == "/health"
+    },
+    GroupedPath: func(path string) string {
+        // Group similar paths for better metrics
+        if strings.HasPrefix(path, "/users/") {
+            return "/users/:id"
+        }
+        return path
+    },
+}
+
+router.Use(middleware.MetricsMiddleware(metrics, metricsConfig))
+
+// Access metrics
+stats := metrics.GetStats()
+fmt.Printf("Metrics: %+v", stats)
+```
+
+### Request Logging
+
+Advanced request logging with structured output.
+
+```go
+// Custom logging configuration
+loggingConfig := middleware.LoggingConfig{
+    Logger:     log.New(os.Stdout, "", log.LstdFlags),
+    Format:     "${time} ${method} ${path} ${status} ${size} ${duration}",
+    TimeFormat: time.RFC3339,
+    UTC:        true,
+    Skip: func(r *http.Request) bool {
+        return r.URL.Path == "/health"
+    },
+    CustomFields: map[string]func(*http.Request, time.Duration) interface{}{
+        "user_id": func(r *http.Request, d time.Duration) interface{} {
+            if userID := r.Header.Get("X-User-ID"); userID != "" {
+                return userID
+            }
+            return nil
+        },
+    },
+}
+
+router.Use(middleware.RequestLogging(loggingConfig))
+```
+
+## Middleware Combinations
+
+### Development Stack
+
+```go
+func setupDevelopmentMiddleware(router *forgerouter.FastRouter) {
+    // Development-friendly middleware stack
+    router.Use(middleware.RequestID())
+    router.Use(forgerouter.Logger)
+    router.Use(forgerouter.Recoverer)
+
+    // Permissive CORS for development
+    router.Use(middleware.CORS(middleware.CORSConfig{
+        AllowedOrigins:   []string{"*"},
+        AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
+        AllowedHeaders:   []string{"*"},
+        AllowCredentials: true,
+    }))
+
+    // Basic security headers
+    router.Use(middleware.SecureHeaders())
+}
+```
+
+### Production Stack
+
+```go
+func setupProductionMiddleware(router *forgerouter.FastRouter, config Config) {
+    // Production middleware stack
+    router.Use(middleware.RequestID())
+    router.Use(forgerouter.Logger)
+    router.Use(forgerouter.Recoverer)
+
+    // Security middleware
+    router.Use(middleware.SecureHeaders(middleware.SecurityConfig{
+        HSTSMaxAge:            31536000,
+        HSTSIncludeSubdomains: true,
+        HSTSPreload:           true,
+        ContentSecurityPolicy: "default-src 'self'",
+    }))
+
+    // Performance middleware
+    router.Use(middleware.Compression())
+    router.Use(middleware.BodyLimit(10 << 20)) // 10MB
+
+    // Rate limiting
+    router.Use(middleware.RateLimit(middleware.RateLimitConfig{
+        RequestsPerSecond: 100,
+        BurstSize:         200,
+    }))
+
+    // CORS with specific origins
+    router.Use(middleware.CORS(middleware.CORSConfig{
+        AllowedOrigins: config.AllowedOrigins,
+        AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+        AllowedHeaders: []string{"Content-Type", "Authorization"},
+    }))
+
+    // Circuit breaker for resilience
+    router.Use(middleware.CircuitBreakerMiddleware(middleware.CircuitBreakerConfig{
+        MaxRequests: 3,
+        Interval:    time.Minute,
+        Timeout:     30 * time.Second,
+    }))
+}
+```
+
+### API Gateway Stack
+
+```go
+func setupGatewayMiddleware(router *forgerouter.FastRouter) {
+    // Metrics collection
+    metrics := middleware.NewMetrics()
+    router.Use(middleware.MetricsMiddleware(metrics))
+
+    // Request tracing
+    router.Use(middleware.RequestID())
+    router.Use(middleware.RequestLogging(middleware.LoggingConfig{
+        Format: "${time} ${method} ${path} ${status} ${duration} ${request_id}",
+        CustomFields: map[string]func(*http.Request, time.Duration) interface{}{
+            "service": func(r *http.Request, d time.Duration) interface{} {
+                return r.Header.Get("X-Service-Name")
+            },
+        },
+    }))
+
+    // Security
+    router.Use(middleware.SecureHeaders())
+    router.Use(middleware.RateLimit(middleware.RateLimitConfig{
+        RequestsPerSecond: 1000,
+        BurstSize:         2000,
+    }))
+
+    // Authentication for protected routes
+    router.Use(middleware.JWT(middleware.JWTConfig{
+        SigningKey:    []byte(os.Getenv("JWT_SECRET")),
+        SigningMethod: jwt.SigningMethodHS256,
+        SkipFunc: func(r *http.Request) bool {
+            // Skip auth for public endpoints
+            publicPaths := []string{"/health", "/metrics", "/auth/login"}
+            for _, path := range publicPaths {
+                if r.URL.Path == path {
+                    return true
+                }
+            }
+            return false
+        },
+    }))
+
+    // Performance
+    router.Use(middleware.Compression())
+    router.Use(forgerouter.Timeout(30 * time.Second))
+
+    // Resilience
+    router.Use(middleware.CircuitBreakerMiddleware(middleware.CircuitBreakerConfig{
+        MaxRequests: 5,
+        Interval:    time.Minute,
+        Timeout:     30 * time.Second,
+    }))
+
+    // Recovery
+    router.Use(forgerouter.Recoverer)
+}
+```
+
+## Middleware Helper Functions
+
+### Context Helpers
+
+ForgeRouter provides helper functions to extract common values from request context:
+
+```go
+import "github.com/xraph/forgerouter/middleware"
+
+func myHandler(w http.ResponseWriter, r *http.Request) {
+    // Get request ID
+    requestID := middleware.GetRequestID(r)
+
+    // Get JWT token
+    token := middleware.GetJWTToken(r)
+
+    // Get JWT claims
+    claims := middleware.GetJWTClaims(r)
+
+    // Get user ID from JWT claims
+    userID := middleware.GetUserID(r)
+
+    fmt.Printf("Request %s from user %s", requestID, userID)
+}
+```
+
+### Custom Storage Backends
+
+Implement custom storage for rate limiting:
+
+```go
+type RedisRateLimitStore struct {
+    client *redis.Client
+    rps    rate.Limit
+    burst  int
+}
+
+func (s *RedisRateLimitStore) GetLimiter(key string) *rate.Limiter {
+    // Implement Redis-backed rate limiting
+    // This is a simplified example
+    return rate.NewLimiter(s.rps, s.burst)
+}
+
+func (s *RedisRateLimitStore) CleanupExpired() {
+    // Redis handles expiration automatically
+}
+
+// Use custom storage
+redisStore := &RedisRateLimitStore{
+    client: redisClient,
+    rps:    rate.Limit(100),
+    burst:  200,
+}
+
+rateLimitConfig := middleware.RateLimitConfig{
+    Store: redisStore,
+}
+```
+
+## Testing Middleware
+
+Test middleware in isolation:
+
+```go
+func TestRateLimitMiddleware(t *testing.T) {
+    config := middleware.RateLimitConfig{
+        RequestsPerSecond: 1,
+        BurstSize:         1,
+    }
+
+    middleware := middleware.RateLimit(config)
+
+    handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        w.WriteHeader(http.StatusOK)
+    }))
+
+    // First request should succeed
+    req1 := httptest.NewRequest("GET", "/test", nil)
+    w1 := httptest.NewRecorder()
+    handler.ServeHTTP(w1, req1)
+
+    if w1.Code != http.StatusOK {
+        t.Errorf("Expected first request to succeed, got %d", w1.Code)
+    }
+
+    // Second request should be rate limited
+    req2 := httptest.NewRequest("GET", "/test", nil)
+    w2 := httptest.NewRecorder()
+    handler.ServeHTTP(w2, req2)
+
+    if w2.Code != http.StatusTooManyRequests {
+        t.Errorf("Expected second request to be rate limited, got %d", w2.Code)
+    }
+}
+```
+
+## Performance Tips
+
+import { Callout } from 'nextra/components'
+
+<Callout type="info">
+    **Performance Tips**:
+    - Order middleware by likelihood of early termination
+    - Use skip functions to avoid unnecessary processing
+    - Consider using opinionated middleware only where OpenAPI documentation is needed
+    - Enable compression for text-based responses
+    - Use appropriate rate limiting strategies for your use case
+</Callout>
+
+### Optimal Middleware Ordering
+
+```go
+// ✅ Optimal order: fast-failing middleware first
+router.Use(middleware.RateLimit(rateLimitConfig))      // Fast check, may reject early
+router.Use(middleware.CORS())                          // Quick header check
+router.Use(middleware.JWT(jwtConfig))                  // Authentication
+router.Use(middleware.RequestID())                     // Add request ID
+router.Use(middleware.Compression())                   // Response modification
+router.Use(middleware.RequestLogging(logConfig))       // Always logs
+router.Use(forgerouter.Recoverer)                     // Always wraps handler
+```
+
+ForgeRouter's middleware ecosystem provides everything you need to build secure, performant, and well-documented APIs while maintaining flexibility for custom requirements.

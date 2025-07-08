@@ -17,6 +17,7 @@ const meta: MetaRecord = {
     "openapi": "OpenAPI Integration",
     "streaming": "Streaming (WS & SSE)",
     "testing": "Testing",
+    "benchmarks": "Benchmarks",
     "examples": "Examples",
     "api-reference": "API Reference",
     "migration": "Migration Guide",
