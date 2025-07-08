@@ -51,7 +51,6 @@ func main() {
 	})
 
 	// Enable both OpenAPI and AsyncAPI documentation
-	router.EnableOpenAPI()
 	router.EnableAsyncAPI()
 
 	router.OpenAPI().

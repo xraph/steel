@@ -349,6 +349,7 @@ func (b *OpenAPIBuilder) Build() *FastRouter {
 		}
 
 		b.router.openAPISpec.Info = currentInfo
+		b.router.EnableOpenAPI()
 	}
 
 	// Apply servers

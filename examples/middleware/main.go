@@ -101,6 +101,9 @@ var userCredentials = map[string]string{
 func main() {
 	router := forgerouter.NewRouter()
 
+	router.EnableOpenAPI()
+	router.EnableAsyncAPI()
+
 	// ==========================================================================
 	// Configure OpenAPI documentation with security schemes
 	// ==========================================================================
