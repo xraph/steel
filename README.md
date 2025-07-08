@@ -402,7 +402,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-- 📖 [Documentation](https://forgerouter.dev)
+- 📖 [Documentation](https://forge-router.xraph.com)
 - 🐛 [Report Bug](https://github.com/xraph/forgerouter/issues)
 - 💡 [Request Feature](https://github.com/xraph/forgerouter/issues)
 - 💬 [Discussions](https://github.com/xraph/forgerouter/discussions)
