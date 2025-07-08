@@ -1,4 +1,4 @@
-# ForgeRouter 🚀
+# Forge Router 🚀
 
 A high-performance HTTP router for Go with automatic OpenAPI documentation, WebSocket/SSE support, and comprehensive testing utilities.
 
