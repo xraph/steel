@@ -172,7 +172,7 @@ func TestFullRESTAPI(t *testing.T) {
 	// User API routes
 	router.Route("/api/v1/users", func(r Router) {
 		// Create user
-		r.OpinionatedPOST("/", func(ctx *FastContext, req CreateUserRequest) (*User, error) {
+		r.OpinionatedPOST("/", func(ctx *ForgeContext, req CreateUserRequest) (*User, error) {
 			if req.Name == "" {
 				return nil, BadRequest("Name is required")
 			}
@@ -188,7 +188,7 @@ func TestFullRESTAPI(t *testing.T) {
 		}, WithSummary("Create user"), WithDescription("Create a new user"))
 
 		// List users
-		r.OpinionatedGET("/", func(ctx *FastContext, req ListUsersRequest) (*UserListResponse, error) {
+		r.OpinionatedGET("/", func(ctx *ForgeContext, req ListUsersRequest) (*UserListResponse, error) {
 			if req.Limit <= 0 {
 				req.Limit = 10
 			}
@@ -211,7 +211,7 @@ func TestFullRESTAPI(t *testing.T) {
 		}, WithSummary("List users"), WithDescription("Get paginated list of users"))
 
 		// Get user by ID
-		r.OpinionatedGET("/:id", func(ctx *FastContext, req GetUserRequest) (*User, error) {
+		r.OpinionatedGET("/:id", func(ctx *ForgeContext, req GetUserRequest) (*User, error) {
 			user, exists := db.GetByID(req.ID)
 			if !exists {
 				return nil, NotFound("User")
@@ -221,7 +221,7 @@ func TestFullRESTAPI(t *testing.T) {
 		}, WithSummary("Get user"), WithDescription("Get user by ID"))
 
 		// Update user
-		r.OpinionatedPUT("/:id", func(ctx *FastContext, req UpdateUserRequest) (*User, error) {
+		r.OpinionatedPUT("/:id", func(ctx *ForgeContext, req UpdateUserRequest) (*User, error) {
 			if req.Name == "" {
 				return nil, BadRequest("Name is required")
 			}
@@ -241,7 +241,7 @@ func TestFullRESTAPI(t *testing.T) {
 		}, WithSummary("Update user"), WithDescription("Update user by ID"))
 
 		// Delete user
-		r.OpinionatedDELETE("/:id", func(ctx *FastContext, req struct {
+		r.OpinionatedDELETE("/:id", func(ctx *ForgeContext, req struct {
 			ID int `path:"id"`
 		}) (*APIResponse, error) {
 			exists := db.Delete(req.ID)
@@ -682,15 +682,15 @@ func TestErrorHandlingIntegration(t *testing.T) {
 	})
 
 	// Routes with different error types
-	router.OpinionatedGET("/bad-request", func(ctx *FastContext, req struct{}) (*struct{}, error) {
+	router.OpinionatedGET("/bad-request", func(ctx *ForgeContext, req struct{}) (*struct{}, error) {
 		return nil, BadRequest("This is a bad request")
 	})
 
-	router.OpinionatedGET("/not-found", func(ctx *FastContext, req struct{}) (*struct{}, error) {
+	router.OpinionatedGET("/not-found", func(ctx *ForgeContext, req struct{}) (*struct{}, error) {
 		return nil, NotFound("Resource")
 	})
 
-	router.OpinionatedGET("/validation-error", func(ctx *FastContext, req struct{}) (*struct{}, error) {
+	router.OpinionatedGET("/validation-error", func(ctx *ForgeContext, req struct{}) (*struct{}, error) {
 		fields := []FieldError{
 			NewFieldError("email", "Invalid email format", "invalid-email", "INVALID_FORMAT"),
 			NewFieldError("age", "Age must be positive", -1, "INVALID_VALUE"),
@@ -698,7 +698,7 @@ func TestErrorHandlingIntegration(t *testing.T) {
 		return nil, UnprocessableEntity("Validation failed", fields...)
 	})
 
-	router.OpinionatedGET("/internal-error", func(ctx *FastContext, req struct{}) (*struct{}, error) {
+	router.OpinionatedGET("/internal-error", func(ctx *ForgeContext, req struct{}) (*struct{}, error) {
 		return nil, InternalServerError("Something went wrong")
 	})
 
@@ -706,7 +706,7 @@ func TestErrorHandlingIntegration(t *testing.T) {
 		panic("Test panic")
 	})
 
-	router.OpinionatedGET("/business-error", func(ctx *FastContext, req struct{}) (*struct{}, error) {
+	router.OpinionatedGET("/business-error", func(ctx *ForgeContext, req struct{}) (*struct{}, error) {
 		return nil, NewBusinessError(http.StatusConflict, "DUPLICATE_EMAIL", "Email already exists", map[string]string{
 			"email": "test@example.com",
 		})

@@ -14,7 +14,7 @@ import (
 // The type is thread-safe, allowing concurrent operations across multiple goroutines.
 type SSEConnection struct {
 	writer   http.ResponseWriter
-	router   *FastRouter
+	router   *ForgeRouter
 	params   *Params
 	request  *http.Request
 	clientID string

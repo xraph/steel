@@ -150,7 +150,7 @@ var users = make(map[string]*User)
 var posts = make(map[string]*Post)
 
 // Handler implementations
-func GetUserHandler(ctx *forgerouter.FastContext, input GetUserInput) (*GetUserOutput, error) {
+func GetUserHandler(ctx *forgerouter.ForgeContext, input GetUserInput) (*GetUserOutput, error) {
 	user, exists := users[input.ID]
 	if !exists {
 		return nil, errors.New("user not found")
@@ -159,7 +159,7 @@ func GetUserHandler(ctx *forgerouter.FastContext, input GetUserInput) (*GetUserO
 	return &GetUserOutput{User: user}, nil
 }
 
-func CreateUserHandler(ctx *forgerouter.FastContext, input CreateUserInput) (*CreateUserOutput, error) {
+func CreateUserHandler(ctx *forgerouter.ForgeContext, input CreateUserInput) (*CreateUserOutput, error) {
 	// Check authorization
 	if input.AuthToken != "Bearer valid-token" {
 		return nil, forgerouter.Unauthorized("Authorization required for user deletion")
@@ -182,7 +182,7 @@ func CreateUserHandler(ctx *forgerouter.FastContext, input CreateUserInput) (*Cr
 	}, nil
 }
 
-func UpdateUserHandler(ctx *forgerouter.FastContext, input UpdateUserInput) (*UpdateUserOutput, error) {
+func UpdateUserHandler(ctx *forgerouter.ForgeContext, input UpdateUserInput) (*UpdateUserOutput, error) {
 	user, exists := users[input.ID]
 	if !exists {
 		return nil, errors.New("user not found")
@@ -203,7 +203,7 @@ func UpdateUserHandler(ctx *forgerouter.FastContext, input UpdateUserInput) (*Up
 	}, nil
 }
 
-func ListUsersHandler(ctx *forgerouter.FastContext, input ListUsersInput) (*ListUsersOutput, error) {
+func ListUsersHandler(ctx *forgerouter.ForgeContext, input ListUsersInput) (*ListUsersOutput, error) {
 	// Convert map to slice
 	userList := make([]User, 0, len(users))
 	for _, user := range users {
@@ -232,7 +232,7 @@ func ListUsersHandler(ctx *forgerouter.FastContext, input ListUsersInput) (*List
 	}, nil
 }
 
-func DeleteUserHandler(ctx *forgerouter.FastContext, input DeleteUserInput) (*DeleteUserOutput, error) {
+func DeleteUserHandler(ctx *forgerouter.ForgeContext, input DeleteUserInput) (*DeleteUserOutput, error) {
 	_, exists := users[input.ID]
 	if !exists {
 		return nil, errors.New("user not found")
@@ -246,7 +246,7 @@ func DeleteUserHandler(ctx *forgerouter.FastContext, input DeleteUserInput) (*De
 	}, nil
 }
 
-func GetUserPostsHandler(ctx *forgerouter.FastContext, input GetUserPostsInput) (*GetUserPostsOutput, error) {
+func GetUserPostsHandler(ctx *forgerouter.ForgeContext, input GetUserPostsInput) (*GetUserPostsOutput, error) {
 	// Filter posts by user ID
 	userPosts := make([]Post, 0)
 	for _, post := range posts {
@@ -261,7 +261,7 @@ func GetUserPostsHandler(ctx *forgerouter.FastContext, input GetUserPostsInput) 
 	}, nil
 }
 
-func CreatePostHandler(ctx *forgerouter.FastContext, input CreatePostInput) (*CreatePostOutput, error) {
+func CreatePostHandler(ctx *forgerouter.ForgeContext, input CreatePostInput) (*CreatePostOutput, error) {
 	// Verify user exists
 	_, exists := users[input.UserID]
 	if !exists {
@@ -284,7 +284,7 @@ func CreatePostHandler(ctx *forgerouter.FastContext, input CreatePostInput) (*Cr
 	}, nil
 }
 
-func SearchHandler(ctx *forgerouter.FastContext, input SearchInput) (*SearchOutput, error) {
+func SearchHandler(ctx *forgerouter.ForgeContext, input SearchInput) (*SearchOutput, error) {
 	start := time.Now()
 
 	result := &SearchOutput{}
@@ -313,8 +313,8 @@ func SearchHandler(ctx *forgerouter.FastContext, input SearchInput) (*SearchOutp
 	return result, nil
 }
 
-// Health check with minimal input/output
-func HealthCheckHandler(ctx *forgerouter.FastContext, input struct{}) (*struct {
+// HealthCheckHandler Health check with minimal input/output
+func HealthCheckHandler(ctx *forgerouter.ForgeContext, input struct{}) (*struct {
 	Status    string    `json:"status"`
 	Timestamp time.Time `json:"timestamp"`
 	Version   string    `json:"version"`
@@ -427,7 +427,7 @@ func main() {
 		w.Write([]byte("This is a traditional handler"))
 	})
 
-	fmt.Println("🚀 FastRouter with Opinionated Handlers")
+	fmt.Println("🚀 ForgeRouter with Opinionated Handlers")
 	fmt.Println("=======================================")
 	fmt.Println("Server starting on :8080")
 	fmt.Println("")

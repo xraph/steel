@@ -1,7 +1,7 @@
 # CONTRIBUTING.md
-# Contributing to FastRouter
+# Contributing to ForgeRouter
 
-Thank you for your interest in contributing to FastRouter! This document provides guidelines and information about contributing to the project.
+Thank you for your interest in contributing to ForgeRouter! This document provides guidelines and information about contributing to the project.
 
 ## Code of Conduct
 
@@ -135,7 +135,7 @@ docs: update API documentation for new features
 
 ## Performance Considerations
 
-FastRouter is designed for high performance. When contributing:
+ForgeRouter is designed for high performance. When contributing:
 
 - Avoid unnecessary allocations
 - Use object pooling where appropriate
@@ -175,4 +175,4 @@ Contributors will be recognized in:
 - GitHub contributors page
 - Release notes for significant contributions
 
-Thank you for contributing to FastRouter! 🚀
+Thank you for contributing to ForgeRouter! 🚀

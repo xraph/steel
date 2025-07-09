@@ -276,7 +276,7 @@ func main() {
 		r.UseOpinionated(strictRateLimit)
 
 		// Login endpoint (no JWT required, but rate limited)
-		r.OpinionatedPOST("/login", func(ctx *forgerouter.FastContext, req LoginRequest) (*LoginResponse, error) {
+		r.OpinionatedPOST("/login", func(ctx *forgerouter.ForgeContext, req LoginRequest) (*LoginResponse, error) {
 			// Validate credentials
 			expectedPassword, exists := userCredentials[req.Username]
 			if !exists || expectedPassword != req.Password {
@@ -333,7 +333,7 @@ func main() {
 		r.UseOpinionated(normalRateLimit, jwtAuth, auditLog)
 
 		// Get current user info
-		r.OpinionatedGET("/me", func(ctx *forgerouter.FastContext, req struct{}) (*GetUserResponse, error) {
+		r.OpinionatedGET("/me", func(ctx *forgerouter.ForgeContext, req struct{}) (*GetUserResponse, error) {
 			userID := middleware.GetUserID(ctx.Request)
 			if userID == "" {
 				return nil, ctx.Unauthorized("User ID not found in token")
@@ -352,7 +352,7 @@ func main() {
 		)
 
 		// List users (basic users can see limited info)
-		r.OpinionatedGET("", func(ctx *forgerouter.FastContext, req ListUsersRequest) (*ListUsersResponse, error) {
+		r.OpinionatedGET("", func(ctx *forgerouter.ForgeContext, req ListUsersRequest) (*ListUsersResponse, error) {
 			// Set defaults
 			if req.Page <= 0 {
 				req.Page = 1
@@ -402,7 +402,7 @@ func main() {
 		)
 
 		// Get specific user
-		r.OpinionatedGET("/{user_id}", func(ctx *forgerouter.FastContext, req GetUserRequest) (*GetUserResponse, error) {
+		r.OpinionatedGET("/{user_id}", func(ctx *forgerouter.ForgeContext, req GetUserRequest) (*GetUserResponse, error) {
 			user, exists := users[req.UserID]
 			if !exists {
 				return nil, ctx.NotFound("User")
@@ -425,7 +425,7 @@ func main() {
 		r.UseOpinionated(normalRateLimit, jwtAuth, adminAuth, auditLog)
 
 		// Create new user (admin only)
-		r.OpinionatedPOST("/users", func(ctx *forgerouter.FastContext, req CreateUserRequest) (*CreateUserResponse, error) {
+		r.OpinionatedPOST("/users", func(ctx *forgerouter.ForgeContext, req CreateUserRequest) (*CreateUserResponse, error) {
 			// Generate user ID
 			userID := generateUserID()
 
@@ -459,7 +459,7 @@ func main() {
 		)
 
 		// Admin-only user statistics
-		r.OpinionatedGET("/stats", func(ctx *forgerouter.FastContext, req struct{}) (*struct {
+		r.OpinionatedGET("/stats", func(ctx *forgerouter.ForgeContext, req struct{}) (*struct {
 			TotalUsers     int                    `json:"total_users"`
 			UsersByRole    map[string]int         `json:"users_by_role"`
 			RequestMetrics map[string]interface{} `json:"request_metrics"`

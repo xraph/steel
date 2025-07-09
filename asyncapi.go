@@ -189,7 +189,7 @@ func (cm *ConnectionManager) BroadcastSSE(message SSEMessage) {
 }
 
 // initAsyncAPI initializes the AsyncAPI specification, WebSocket and SSE handlers, and the connection manager for the router.
-func (r *FastRouter) initAsyncAPI() {
+func (r *ForgeRouter) initAsyncAPI() {
 	if r.asyncAPISpec == nil {
 		r.asyncAPISpec = &AsyncAPISpec{
 			AsyncAPI: "2.6.0",
@@ -229,7 +229,7 @@ func (r *FastRouter) initAsyncAPI() {
 // WebSocket sets up a WebSocket route with the specified pattern and handler function.
 // The handler can process incoming WebSocket messages and send responses.
 // Additional options can be applied using AsyncHandlerOption.
-func (r *FastRouter) WebSocket(pattern string, handler interface{}, opts ...AsyncHandlerOption) {
+func (r *ForgeRouter) WebSocket(pattern string, handler interface{}, opts ...AsyncHandlerOption) {
 	r.initAsyncAPI()
 	r.registerWSHandler(pattern, handler, opts...)
 }
@@ -238,8 +238,8 @@ func (r *FastRouter) WebSocket(pattern string, handler interface{}, opts ...Asyn
 // The handler must be a function with the signature func(*WSConnection, MessageType) (*ResponseType, error).
 // It validates handler signatures, creates info structures, and sets up the WebSocket HTTP handler.
 // Handlers are automatically managed under the router's connection manager for easy tracking and lifecycle handling.
-// Upgrades HTTP connections to WebSocket, manages connections, and integrates with FastRouter's async API generation.
-func (r *FastRouter) registerWSHandler(pattern string, handler interface{}, opts ...AsyncHandlerOption) {
+// Upgrades HTTP connections to WebSocket, manages connections, and integrates with ForgeRouter's async API generation.
+func (r *ForgeRouter) registerWSHandler(pattern string, handler interface{}, opts ...AsyncHandlerOption) {
 	handlerType := reflect.TypeOf(handler)
 	if handlerType.Kind() != reflect.Func {
 		panic("WebSocket handler must be a function")
@@ -314,7 +314,7 @@ func (r *FastRouter) registerWSHandler(pattern string, handler interface{}, opts
 // handler is the function invoked to process incoming WebSocket messages.
 // messageType specifies the type of the message payload expected by the handler.
 // responseType defines the type of response payload returned by the handler.
-func (r *FastRouter) handleWebSocketConnection(wsConn *WSConnection, handler interface{}, messageType, responseType reflect.Type) {
+func (r *ForgeRouter) handleWebSocketConnection(wsConn *WSConnection, handler interface{}, messageType, responseType reflect.Type) {
 	handlerValue := reflect.ValueOf(handler)
 	defer wsConn.Close()
 
@@ -374,7 +374,7 @@ func (r *FastRouter) handleWebSocketConnection(wsConn *WSConnection, handler int
 }
 
 // SSE registers a server-sent events (SSE) handler for the specified pattern with optional configuration options.
-func (r *FastRouter) SSE(pattern string, handler interface{}, opts ...AsyncHandlerOption) {
+func (r *ForgeRouter) SSE(pattern string, handler interface{}, opts ...AsyncHandlerOption) {
 	r.initAsyncAPI()
 	r.registerSSEHandler(pattern, handler, opts...)
 }
@@ -383,7 +383,7 @@ func (r *FastRouter) SSE(pattern string, handler interface{}, opts ...AsyncHandl
 // The handler must follow the signature func(*SSEConnection, ParamsType) error.
 // Additional options can be applied through AsyncHandlerOption arguments.
 // An HTTP GET route is added to handle SSE requests, setting required headers and managing connections.
-func (r *FastRouter) registerSSEHandler(pattern string, handler interface{}, opts ...AsyncHandlerOption) {
+func (r *ForgeRouter) registerSSEHandler(pattern string, handler interface{}, opts ...AsyncHandlerOption) {
 	handlerType := reflect.TypeOf(handler)
 	if handlerType.Kind() != reflect.Func {
 		panic("SSE handler must be a function")
@@ -443,14 +443,14 @@ func (r *FastRouter) registerSSEHandler(pattern string, handler interface{}, opt
 // sseConn represents the server-sent events connection used within the handler.
 // handler is the function to execute for handling the events.
 // paramsType specifies the expected type for parameters the handler will use.
-func (r *FastRouter) handleSSEConnection(sseConn *SSEConnection, handler interface{}, paramsType reflect.Type) {
+func (r *ForgeRouter) handleSSEConnection(sseConn *SSEConnection, handler interface{}, paramsType reflect.Type) {
 	handlerValue := reflect.ValueOf(handler)
 
 	// Create params instance
 	params := reflect.New(paramsType).Interface()
 
 	// Bind parameters (similar to regular handlers)
-	if err := r.bindParameters(&FastContext{
+	if err := r.bindParameters(&ForgeContext{
 		Request:  sseConn.request,
 		Response: sseConn.writer,
 		router:   r,
@@ -473,7 +473,7 @@ func (r *FastRouter) handleSSEConnection(sseConn *SSEConnection, handler interfa
 
 // generateAsyncAPIForWS generates the AsyncAPI specification for a WebSocket route and updates the AsyncAPI spec.
 // It creates a channel with subscribe and publish operations based on the provided WSHandlerInfo.
-func (r *FastRouter) generateAsyncAPIForWS(info *WSHandlerInfo) {
+func (r *ForgeRouter) generateAsyncAPIForWS(info *WSHandlerInfo) {
 	channel := AsyncAPIChannel{
 		Description: info.Description,
 		Subscribe: &AsyncAPIOperation{
@@ -500,7 +500,7 @@ func (r *FastRouter) generateAsyncAPIForWS(info *WSHandlerInfo) {
 }
 
 // generateAsyncAPIForSSE generates an AsyncAPI channel configuration for an SSE endpoint based on the provided handler info.
-func (r *FastRouter) generateAsyncAPIForSSE(info *SSEHandlerInfo) {
+func (r *ForgeRouter) generateAsyncAPIForSSE(info *SSEHandlerInfo) {
 	channel := AsyncAPIChannel{
 		Description: info.Description,
 		Subscribe: &AsyncAPIOperation{
@@ -518,7 +518,7 @@ func (r *FastRouter) generateAsyncAPIForSSE(info *SSEHandlerInfo) {
 }
 
 // typeToAsyncAPISchema converts a given Go reflect.Type to its corresponding AsyncAPISchema representation.
-func (r *FastRouter) typeToAsyncAPISchema(t reflect.Type) AsyncAPISchema {
+func (r *ForgeRouter) typeToAsyncAPISchema(t reflect.Type) AsyncAPISchema {
 	if t.Kind() == reflect.Ptr {
 		t = t.Elem()
 	}
@@ -555,7 +555,7 @@ func (r *FastRouter) typeToAsyncAPISchema(t reflect.Type) AsyncAPISchema {
 // It constructs schema properties, required fields, and handles JSON tags, including omitempty handling.
 // Fields marked as unexported or explicitly omitted via JSON tags are excluded from the schema.
 // The method processes field metadata such as type, description, and JSON serialization behavior.
-func (r *FastRouter) generateAsyncAPIStructSchema(t reflect.Type) AsyncAPISchema {
+func (r *ForgeRouter) generateAsyncAPIStructSchema(t reflect.Type) AsyncAPISchema {
 	schema := AsyncAPISchema{
 		Type:       "object",
 		Properties: make(map[string]AsyncAPISchema),
@@ -612,7 +612,7 @@ func convertToAsyncAPITags(tags []string) []AsyncAPITag {
 }
 
 // EnableAsyncAPI with embedded Studio support
-func (r *FastRouter) EnableAsyncAPI() {
+func (r *ForgeRouter) EnableAsyncAPI() {
 	r.initAsyncAPI()
 
 	// JSON endpoint for the spec
@@ -1463,7 +1463,7 @@ func generateClientID() string {
 }
 
 // ConnectionManager returns the ConnectionManager instance used to manage WebSocket and SSE connections.
-func (r *FastRouter) ConnectionManager() *ConnectionManager {
+func (r *ForgeRouter) ConnectionManager() *ConnectionManager {
 	r.initAsyncAPI()
 	return r.connectionManager
 }

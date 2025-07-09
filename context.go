@@ -9,11 +9,11 @@ import (
 	json "github.com/json-iterator/go"
 )
 
-// FastContext provides a rich context for opinionated handlers
-type FastContext struct {
+// ForgeContext provides a rich context for opinionated handlers
+type ForgeContext struct {
 	Request  *http.Request
 	Response http.ResponseWriter
-	router   *FastRouter
+	router   *ForgeRouter
 	params   *Params
 }
 
@@ -33,31 +33,31 @@ func URLParam(r *http.Request, key string) string {
 	return params.Get(key)
 }
 
-// Param FastContext methods
-func (c *FastContext) Param(key string) string {
+// Param ForgeContext methods
+func (c *ForgeContext) Param(key string) string {
 	return c.params.Get(key)
 }
 
-func (c *FastContext) Query(key string) string {
+func (c *ForgeContext) Query(key string) string {
 	return c.Request.URL.Query().Get(key)
 }
 
-func (c *FastContext) Header(key string) string {
+func (c *ForgeContext) Header(key string) string {
 	return c.Request.Header.Get(key)
 }
 
-func (c *FastContext) JSON(status int, data interface{}) error {
+func (c *ForgeContext) JSON(status int, data interface{}) error {
 	c.Response.Header().Set("Content-Type", "application/json")
 	c.Response.WriteHeader(status)
 	return json.NewEncoder(c.Response).Encode(data)
 }
 
-func (c *FastContext) Status(status int) *FastContext {
+func (c *ForgeContext) Status(status int) *ForgeContext {
 	c.Response.WriteHeader(status)
 	return c
 }
 
-func (c *FastContext) BindJSON(v interface{}) error {
+func (c *ForgeContext) BindJSON(v interface{}) error {
 	return json.NewDecoder(c.Request.Body).Decode(v)
 }
 

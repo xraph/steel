@@ -46,13 +46,13 @@ type UserResponse struct {
 }
 
 func main() {
-    r := router.NewFastRouter()
+    r := router.NewRouter()
     
     // Add middleware
     r.Use(router.Logger, router.Recoverer)
     
     // Opinionated handler with automatic OpenAPI generation
-    r.OpinionatedGET("/users/:id", func(ctx *router.FastContext, req User) (*UserResponse, error) {
+    r.OpinionatedGET("/users/:id", func(ctx *router.ForgeContext, req User) (*UserResponse, error) {
         return &UserResponse{
             ID:      req.ID,
             Name:    req.Name,
@@ -84,7 +84,7 @@ type CreateUserRequest struct {
     Age   int    `query:"age" description:"User age"`
 }
 
-r.OpinionatedPOST("/users", func(ctx *router.FastContext, req CreateUserRequest) (*UserResponse, error) {
+r.OpinionatedPOST("/users", func(ctx *router.ForgeContext, req CreateUserRequest) (*UserResponse, error) {
     // Request automatically bound from JSON body and query parameters
     if req.Age < 18 {
         return nil, router.BadRequest("User must be 18 or older")
@@ -122,7 +122,7 @@ r.EnableAsyncAPI()
 Rich error types with automatic OpenAPI documentation:
 
 ```go
-r.OpinionatedGET("/users/:id", func(ctx *router.FastContext, req GetUserRequest) (*User, error) {
+r.OpinionatedGET("/users/:id", func(ctx *router.ForgeContext, req GetUserRequest) (*User, error) {
     user, exists := database.GetUser(req.ID)
     if !exists {
         return nil, router.NotFound("User")
@@ -164,7 +164,7 @@ func TestUserAPI(t *testing.T) {
 ### Basic Routing
 
 ```go
-r := router.NewFastRouter()
+r := router.NewRouter()
 
 // HTTP methods
 r.GET("/", handler)
@@ -218,7 +218,7 @@ r.Use(func(next http.Handler) http.Handler {
 ### Custom Response Types
 
 ```go
-r.OpinionatedPOST("/users", func(ctx *router.FastContext, req CreateUserRequest) (*router.APIResponse, error) {
+r.OpinionatedPOST("/users", func(ctx *router.ForgeContext, req CreateUserRequest) (*router.APIResponse, error) {
     user := createUser(req)
     
     return router.Created(user).
@@ -324,7 +324,7 @@ type UserService struct {
     db *gorm.DB
 }
 
-func (s *UserService) GetUser(ctx *router.FastContext, req GetUserRequest) (*User, error) {
+func (s *UserService) GetUser(ctx *router.ForgeContext, req GetUserRequest) (*User, error) {
     var user User
     if err := s.db.First(&user, req.ID).Error; err != nil {
         if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -348,7 +348,7 @@ type CreateUserRequest struct {
     Age   int    `json:"age" validate:"min=18" description:"User age"`
 }
 
-func createUserWithValidation(ctx *router.FastContext, req CreateUserRequest) (*User, error) {
+func createUserWithValidation(ctx *router.ForgeContext, req CreateUserRequest) (*User, error) {
     if err := validator.New().Struct(req); err != nil {
         var fields []router.FieldError
         for _, err := range err.(validator.ValidationErrors) {
@@ -409,4 +409,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Made with ❤️ by the ForgeRouter team**
+**Made with ❤️ by the XRaph team**

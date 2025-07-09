@@ -6,7 +6,7 @@ import (
 
 // RouteGroup Standard router types (keeping existing functionality)
 type RouteGroup struct {
-	router     *FastRouter
+	router     *ForgeRouter
 	prefix     string
 	middleware []MiddlewareFunc
 }

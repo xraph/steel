@@ -4,7 +4,7 @@ import (
 	"net/http"
 )
 
-func (r *FastRouter) addSwaggerUIEndpoint() {
+func (r *ForgeRouter) addSwaggerUIEndpoint() {
 	r.GET("/openapi/swagger", func(w http.ResponseWriter, req *http.Request) {
 		html := `<!DOCTYPE html>
 <html>

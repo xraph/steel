@@ -285,7 +285,7 @@ func OAuth2ClientCredentials(tokenURL string, scopes map[string]string, descript
 }
 
 // RegisterSecurityScheme Enhanced Router methods for security
-func (r *FastRouter) RegisterSecurityScheme(name string, scheme OpenAPISecurityScheme) {
+func (r *ForgeRouter) RegisterSecurityScheme(name string, scheme OpenAPISecurityScheme) {
 	if r.securityProvider == nil {
 		r.securityProvider = NewDefaultSecurityProvider()
 	}
@@ -302,7 +302,7 @@ func (r *FastRouter) RegisterSecurityScheme(name string, scheme OpenAPISecurityS
 	r.openAPISpec.Components.SecuritySchemes[name] = scheme
 }
 
-func (r *FastRouter) SetSecurityProvider(provider SecurityProvider) {
+func (r *ForgeRouter) SetSecurityProvider(provider SecurityProvider) {
 	r.securityProvider = provider
 
 	// Re-register schemes with the new provider
@@ -311,15 +311,15 @@ func (r *FastRouter) SetSecurityProvider(provider SecurityProvider) {
 	}
 }
 
-func (r *FastRouter) SetOpenAPIInfo(info OpenAPIInfo) {
+func (r *ForgeRouter) SetOpenAPIInfo(info OpenAPIInfo) {
 	r.openAPISpec.Info = info
 }
 
-func (r *FastRouter) AddServer(server OpenAPIServer) {
+func (r *ForgeRouter) AddServer(server OpenAPIServer) {
 	r.openAPISpec.Servers = append(r.openAPISpec.Servers, server)
 }
 
-func (r *FastRouter) SetJSONSchemaDialect(dialect string) {
+func (r *ForgeRouter) SetJSONSchemaDialect(dialect string) {
 	// Only set if explicitly requested by the user
 	// Common values:
 	// "https://spec.openapis.org/oas/3.1/dialect/base" - Default OpenAPI 3.1.1
@@ -339,7 +339,7 @@ func (r *FastRouter) SetJSONSchemaDialect(dialect string) {
 }
 
 // AddWebhook Add webhook support (new in OpenAPI 3.1.1)
-func (r *FastRouter) AddWebhook(name string, pathItem OpenAPIPath) {
+func (r *ForgeRouter) AddWebhook(name string, pathItem OpenAPIPath) {
 	if r.openAPISpec.Webhooks == nil {
 		r.openAPISpec.Webhooks = make(map[string]OpenAPIPath)
 	}
@@ -347,18 +347,18 @@ func (r *FastRouter) AddWebhook(name string, pathItem OpenAPIPath) {
 }
 
 // SetGlobalSecurity Global security requirements (applied to all operations unless overridden)
-func (r *FastRouter) SetGlobalSecurity(requirements ...OpenAPISecurityRequirement) {
+func (r *ForgeRouter) SetGlobalSecurity(requirements ...OpenAPISecurityRequirement) {
 	r.globalSecurity = requirements
 }
 
-func (r *FastRouter) GetOpenAPISpec() *OpenAPISpec {
+func (r *ForgeRouter) GetOpenAPISpec() *OpenAPISpec {
 	// Return a copy to prevent external modifications
 	spec := *r.openAPISpec
 	return &spec
 }
 
 // generateBaseOperation creates the base OpenAPI operation from handler info
-func (r *FastRouter) generateBaseOperation(info *HandlerInfo) OpenAPIOperation {
+func (r *ForgeRouter) generateBaseOperation(info *HandlerInfo) OpenAPIOperation {
 	operation := OpenAPIOperation{
 		Summary:     info.Summary,
 		Description: info.Description,
@@ -467,7 +467,7 @@ func (r *FastRouter) generateBaseOperation(info *HandlerInfo) OpenAPIOperation {
 }
 
 // Enhanced OpenAPI generation to include security
-func (r *FastRouter) generateOpenAPIForHandlerWithSecurity(info *HandlerInfo) {
+func (r *ForgeRouter) generateOpenAPIForHandlerWithSecurity(info *HandlerInfo) {
 	// Generate base operation
 	operation := r.generateBaseOperation(info)
 

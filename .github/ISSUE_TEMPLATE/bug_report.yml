@@ -14,8 +14,8 @@ body:
   - type: input
     id: version
     attributes:
-      label: FastRouter Version
-      description: What version of FastRouter are you running?
+      label: ForgeRouter Version
+      description: What version of ForgeRouter are you running?
       placeholder: v1.0.0
     validations:
       required: true
@@ -183,8 +183,8 @@ body:
   - type: input
     id: version
     attributes:
-      label: FastRouter Version
-      description: What version of FastRouter are you running?
+      label: ForgeRouter Version
+      description: What version of ForgeRouter are you running?
       placeholder: v1.0.0
     validations:
       required: true

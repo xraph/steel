@@ -25,7 +25,7 @@
           "Relative": 1.012791228871631
         },
         {
-          "Router": "FastRouter",
+          "Router": "ForgeRouter",
           "NsPerOp": 206.7,
           "BytesPerOp": 386,
           "AllocsPerOp": 4,
@@ -39,14 +39,14 @@
           "Relative": 2.367519415258109
         },
         {
-          "Router": "FastRouter",
+          "Router": "ForgeRouter",
           "NsPerOp": 208.5,
           "BytesPerOp": 386,
           "AllocsPerOp": 4,
           "Relative": 2.381224303334856
         },
         {
-          "Router": "FastRouter",
+          "Router": "ForgeRouter",
           "NsPerOp": 208.5,
           "BytesPerOp": 386,
           "AllocsPerOp": 4,

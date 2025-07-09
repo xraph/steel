@@ -190,7 +190,7 @@ func main() {
 	)
 
 	// REST API endpoint to send notifications
-	router.OpinionatedPOST("/api/notifications", func(ctx *forgerouter.FastContext, input struct {
+	router.OpinionatedPOST("/api/notifications", func(ctx *forgerouter.ForgeContext, input struct {
 		UserID  string `json:"user_id" description:"Target user ID"`
 		Type    string `json:"type" description:"Notification type"`
 		Title   string `json:"title" description:"Notification title"`
@@ -271,7 +271,7 @@ func main() {
 	)
 
 	// API endpoint for system broadcasts
-	router.OpinionatedPOST("/api/system/broadcast", func(ctx *forgerouter.FastContext, input struct {
+	router.OpinionatedPOST("/api/system/broadcast", func(ctx *forgerouter.ForgeContext, input struct {
 		Type    string      `json:"type" description:"Broadcast type"`
 		Message interface{} `json:"message" description:"Broadcast message"`
 	}) (*struct {
@@ -313,7 +313,7 @@ func main() {
 	)
 
 	// Health check endpoint
-	router.OpinionatedGET("/health", func(ctx *forgerouter.FastContext, input struct{}) (*struct {
+	router.OpinionatedGET("/health", func(ctx *forgerouter.ForgeContext, input struct{}) (*struct {
 		Status      string    `json:"status"`
 		Timestamp   time.Time `json:"timestamp"`
 		Connections struct {
@@ -352,7 +352,7 @@ func main() {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FastRouter Async Demo</title>
+    <title>ForgeRouter Async Demo</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -431,7 +431,7 @@ func main() {
                 <div class="flex items-center">
                     <div class="flex-shrink-0">
                         <h1 class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                            FastRouter Demo
+                            ForgeRouter Demo
                         </h1>
                     </div>
                 </div>

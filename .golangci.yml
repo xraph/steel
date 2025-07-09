@@ -127,7 +127,7 @@ linters-settings:
 
   goheader:
     template: |-
-      Copyright {{ YEAR }} FastRouter Contributors
+      Copyright {{ YEAR }} ForgeRouter Contributors
       
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
@@ -380,7 +380,7 @@ changelog:
 
   [default.extend-words]
   # Add any project-specific words that shouldn't be flagged as typos
-  fastrouter = "fastrouter"
+  ForgeRouter = "ForgeRouter"
   gorilla = "gorilla"
   middlewares = "middlewares"
   

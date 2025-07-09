@@ -211,7 +211,7 @@ func TestGroupOpinionatedHandlers(t *testing.T) {
 		}
 
 		group := router.Group()
-		group.OpinionatedGET("/users/:id", func(ctx *FastContext, req TestRequest) (*TestResponse, error) {
+		group.OpinionatedGET("/users/:id", func(ctx *ForgeContext, req TestRequest) (*TestResponse, error) {
 			return &TestResponse{
 				ID:      req.ID,
 				Message: "Hello from group",

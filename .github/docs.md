@@ -1,6 +1,6 @@
-# FastRouter CI/CD Setup Guide
+# ForgeRouter CI/CD Setup Guide
 
-This guide provides a complete CI/CD setup with automatic semantic versioning for the FastRouter project.
+This guide provides a complete CI/CD setup with automatic semantic versioning for the ForgeRouter project.
 
 ## 🚀 Features
 
@@ -52,7 +52,7 @@ This guide provides a complete CI/CD setup with automatic semantic versioning fo
 
 set -e
 
-echo "🚀 Setting up FastRouter CI/CD..."
+echo "🚀 Setting up ForgeRouter CI/CD..."
 
 # Colors for output
 RED='\033[0;31m'
@@ -129,7 +129,7 @@ var (
 
 func main() {
     if len(os.Args) > 1 && os.Args[1] == "version" {
-        fmt.Printf("FastRouter %s\n", version)
+        fmt.Printf("ForgeRouter %s\n", version)
         fmt.Printf("Build time: %s\n", buildTime)
         fmt.Printf("Git commit: %s\n", gitCommit)
         return
@@ -141,7 +141,7 @@ func main() {
         return
     }
     
-    fmt.Println("FastRouter - High Performance HTTP Router")
+    fmt.Println("ForgeRouter - High Performance HTTP Router")
     fmt.Println("Use 'version' to see version info")
 }
 EOF
@@ -250,7 +250,7 @@ fi
 if [ -z "$(git log --oneline 2>/dev/null)" ]; then
     print_status "Creating initial commit..."
     git add .
-    git commit -m "feat: initial FastRouter setup with CI/CD
+    git commit -m "feat: initial ForgeRouter setup with CI/CD
 
 - Add automated CI/CD workflows
 - Add security scanning and quality gates
@@ -513,4 +513,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed contribution guidelines.
 
 ## 📄 License
 
-This CI/CD setup is provided under the same license as FastRouter.
+This CI/CD setup is provided under the same license as ForgeRouter.

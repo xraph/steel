@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	// FastRouter (our implementation)
+	// ForgeRouter (our implementation)
 	forge_router "github.com/xraph/forgerouter"
 
 	// Popular Go routers for comparison
@@ -26,7 +26,7 @@ func simpleHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // Setup functions for each router
-func setupFastRouter() http.Handler {
+func setupForgeRouter() http.Handler {
 	router := forge_router.NewRouter()
 
 	// Static routes
@@ -260,12 +260,12 @@ func setupGorillaMux() http.Handler {
 // Benchmark static routes
 func BenchmarkStaticRoutes(b *testing.B) {
 	routers := map[string]http.Handler{
-		"FastRouter": setupFastRouter(),
-		"Chi":        setupChi(),
-		"Gin":        setupGin(),
-		"Echo":       setupEcho(),
-		"HttpRouter": setupHttpRouter(),
-		"GorillaMux": setupGorillaMux(),
+		"ForgeRouter": setupForgeRouter(),
+		"Chi":         setupChi(),
+		"Gin":         setupGin(),
+		"Echo":        setupEcho(),
+		"HttpRouter":  setupHttpRouter(),
+		"GorillaMux":  setupGorillaMux(),
 	}
 
 	// Special handling for Fiber (doesn't implement http.Handler)
@@ -317,12 +317,12 @@ func BenchmarkStaticRoutes(b *testing.B) {
 // Benchmark parameter routes
 func BenchmarkParameterRoutes(b *testing.B) {
 	routers := map[string]http.Handler{
-		"FastRouter": setupFastRouter(),
-		"Chi":        setupChi(),
-		"Gin":        setupGin(),
-		"Echo":       setupEcho(),
-		"HttpRouter": setupHttpRouter(),
-		"GorillaMux": setupGorillaMux(),
+		"ForgeRouter": setupForgeRouter(),
+		"Chi":         setupChi(),
+		"Gin":         setupGin(),
+		"Echo":        setupEcho(),
+		"HttpRouter":  setupHttpRouter(),
+		"GorillaMux":  setupGorillaMux(),
 	}
 
 	fiberApp := setupFiber()
@@ -373,12 +373,12 @@ func BenchmarkParameterRoutes(b *testing.B) {
 // Benchmark wildcard routes
 func BenchmarkWildcardRoutes(b *testing.B) {
 	routers := map[string]http.Handler{
-		"FastRouter": setupFastRouter(),
-		"Chi":        setupChi(),
-		"Gin":        setupGin(),
-		"Echo":       setupEcho(),
-		"HttpRouter": setupHttpRouter(),
-		"GorillaMux": setupGorillaMux(),
+		"ForgeRouter": setupForgeRouter(),
+		"Chi":         setupChi(),
+		"Gin":         setupGin(),
+		"Echo":        setupEcho(),
+		"HttpRouter":  setupHttpRouter(),
+		"GorillaMux":  setupGorillaMux(),
 	}
 
 	fiberApp := setupFiber()
@@ -436,10 +436,10 @@ func BenchmarkWithMiddleware(b *testing.B) {
 		})
 	}
 
-	// FastRouter with middleware
-	fastRouter := forge_router.NewRouter()
-	fastRouter.Use(middlewareFunc)
-	fastRouter.GET("/test", simpleHandler)
+	// ForgeRouter with middleware
+	forgeRouter := forge_router.NewRouter()
+	forgeRouter.Use(middlewareFunc)
+	forgeRouter.GET("/test", simpleHandler)
 
 	// Chi with middleware
 	chiRouter := chi.NewRouter()
@@ -458,9 +458,9 @@ func BenchmarkWithMiddleware(b *testing.B) {
 	})
 
 	routers := map[string]http.Handler{
-		"FastRouter": fastRouter,
-		"Chi":        chiRouter,
-		"Gin":        ginRouter,
+		"ForgeRouter": forgeRouter,
+		"Chi":         chiRouter,
+		"Gin":         ginRouter,
 	}
 
 	for name, router := range routers {
@@ -482,7 +482,7 @@ func BenchmarkWithMiddleware(b *testing.B) {
 // Benchmark route lookup performance with many routes
 func BenchmarkManyRoutes(b *testing.B) {
 	// Create routers with many routes
-	fastRouter := forge_router.NewRouter()
+	forgeRouter := forge_router.NewRouter()
 	chiRouter := chi.NewRouter()
 	gin.SetMode(gin.ReleaseMode)
 	ginRouter := gin.New()
@@ -492,9 +492,9 @@ func BenchmarkManyRoutes(b *testing.B) {
 		path := fmt.Sprintf("/route%d", i)
 		paramPath := fmt.Sprintf("/route%d/:id", i)
 
-		// FastRouter
-		fastRouter.GET(path, simpleHandler)
-		fastRouter.GET(paramPath, simpleHandler)
+		// ForgeRouter
+		forgeRouter.GET(path, simpleHandler)
+		forgeRouter.GET(paramPath, simpleHandler)
 
 		// Chi
 		chiRouter.Get(path, simpleHandler)
@@ -506,9 +506,9 @@ func BenchmarkManyRoutes(b *testing.B) {
 	}
 
 	routers := map[string]http.Handler{
-		"FastRouter": fastRouter,
-		"Chi":        chiRouter,
-		"Gin":        ginRouter,
+		"ForgeRouter": forgeRouter,
+		"Chi":         chiRouter,
+		"Gin":         ginRouter,
 	}
 
 	// Test lookup performance for routes at different positions
@@ -540,11 +540,11 @@ func BenchmarkManyRoutes(b *testing.B) {
 // Memory allocation benchmark
 func BenchmarkMemoryAllocations(b *testing.B) {
 	routers := map[string]http.Handler{
-		"FastRouter": setupFastRouter(),
-		"Chi":        setupChi(),
-		"Gin":        setupGin(),
-		"Echo":       setupEcho(),
-		"HttpRouter": setupHttpRouter(),
+		"ForgeRouter": setupForgeRouter(),
+		"Chi":         setupChi(),
+		"Gin":         setupGin(),
+		"Echo":        setupEcho(),
+		"HttpRouter":  setupHttpRouter(),
 	}
 
 	for name, router := range routers {
@@ -566,10 +566,10 @@ func BenchmarkMemoryAllocations(b *testing.B) {
 // Concurrent request benchmark
 func BenchmarkConcurrentRequests(b *testing.B) {
 	routers := map[string]http.Handler{
-		"FastRouter": setupFastRouter(),
-		"Chi":        setupChi(),
-		"Gin":        setupGin(),
-		"HttpRouter": setupHttpRouter(),
+		"ForgeRouter": setupForgeRouter(),
+		"Chi":         setupChi(),
+		"Gin":         setupGin(),
+		"HttpRouter":  setupHttpRouter(),
 	}
 
 	for name, router := range routers {
@@ -593,10 +593,10 @@ func BenchmarkConcurrentRequests(b *testing.B) {
 // Mixed workload benchmark (realistic scenario)
 func BenchmarkMixedWorkload(b *testing.B) {
 	routers := map[string]http.Handler{
-		"FastRouter": setupFastRouter(),
-		"Chi":        setupChi(),
-		"Gin":        setupGin(),
-		"HttpRouter": setupHttpRouter(),
+		"ForgeRouter": setupForgeRouter(),
+		"Chi":         setupChi(),
+		"Gin":         setupGin(),
+		"HttpRouter":  setupHttpRouter(),
 	}
 
 	requests := []*http.Request{
