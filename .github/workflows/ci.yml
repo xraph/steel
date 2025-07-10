@@ -185,12 +185,12 @@ jobs:
           else
             EXT=""
           fi
-          go build -ldflags="-s -w" -o dist/forge-router-${{ matrix.goos }}-${{ matrix.goarch }}$EXT ./cmd/...
+          go build -ldflags="-s -w" -o dist/steel-${{ matrix.goos }}-${{ matrix.goarch }}$EXT ./cmd/...
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: forge-router-${{ matrix.goos }}-${{ matrix.goarch }}
+          name: steel-${{ matrix.goos }}-${{ matrix.goarch }}
           path: dist/
 
   # Integration Tests (if you have them)
@@ -247,8 +247,8 @@ jobs:
           context: .
           push: false
           tags: |
-            forge-router:latest
-            forge-router:${{ github.sha }}
+            steel:latest
+            steel:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

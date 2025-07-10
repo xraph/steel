@@ -1,4 +1,4 @@
-package forgerouter
+package steel
 
 import (
 	"fmt"
@@ -285,7 +285,7 @@ func OAuth2ClientCredentials(tokenURL string, scopes map[string]string, descript
 }
 
 // RegisterSecurityScheme Enhanced Router methods for security
-func (r *ForgeRouter) RegisterSecurityScheme(name string, scheme OpenAPISecurityScheme) {
+func (r *SteelRouter) RegisterSecurityScheme(name string, scheme OpenAPISecurityScheme) {
 	if r.securityProvider == nil {
 		r.securityProvider = NewDefaultSecurityProvider()
 	}
@@ -302,7 +302,7 @@ func (r *ForgeRouter) RegisterSecurityScheme(name string, scheme OpenAPISecurity
 	r.openAPISpec.Components.SecuritySchemes[name] = scheme
 }
 
-func (r *ForgeRouter) SetSecurityProvider(provider SecurityProvider) {
+func (r *SteelRouter) SetSecurityProvider(provider SecurityProvider) {
 	r.securityProvider = provider
 
 	// Re-register schemes with the new provider
@@ -311,15 +311,15 @@ func (r *ForgeRouter) SetSecurityProvider(provider SecurityProvider) {
 	}
 }
 
-func (r *ForgeRouter) SetOpenAPIInfo(info OpenAPIInfo) {
+func (r *SteelRouter) SetOpenAPIInfo(info OpenAPIInfo) {
 	r.openAPISpec.Info = info
 }
 
-func (r *ForgeRouter) AddServer(server OpenAPIServer) {
+func (r *SteelRouter) AddServer(server OpenAPIServer) {
 	r.openAPISpec.Servers = append(r.openAPISpec.Servers, server)
 }
 
-func (r *ForgeRouter) SetJSONSchemaDialect(dialect string) {
+func (r *SteelRouter) SetJSONSchemaDialect(dialect string) {
 	// Only set if explicitly requested by the user
 	// Common values:
 	// "https://spec.openapis.org/oas/3.1/dialect/base" - Default OpenAPI 3.1.1
@@ -339,7 +339,7 @@ func (r *ForgeRouter) SetJSONSchemaDialect(dialect string) {
 }
 
 // AddWebhook Add webhook support (new in OpenAPI 3.1.1)
-func (r *ForgeRouter) AddWebhook(name string, pathItem OpenAPIPath) {
+func (r *SteelRouter) AddWebhook(name string, pathItem OpenAPIPath) {
 	if r.openAPISpec.Webhooks == nil {
 		r.openAPISpec.Webhooks = make(map[string]OpenAPIPath)
 	}
@@ -347,18 +347,18 @@ func (r *ForgeRouter) AddWebhook(name string, pathItem OpenAPIPath) {
 }
 
 // SetGlobalSecurity Global security requirements (applied to all operations unless overridden)
-func (r *ForgeRouter) SetGlobalSecurity(requirements ...OpenAPISecurityRequirement) {
+func (r *SteelRouter) SetGlobalSecurity(requirements ...OpenAPISecurityRequirement) {
 	r.globalSecurity = requirements
 }
 
-func (r *ForgeRouter) GetOpenAPISpec() *OpenAPISpec {
+func (r *SteelRouter) GetOpenAPISpec() *OpenAPISpec {
 	// Return a copy to prevent external modifications
 	spec := *r.openAPISpec
 	return &spec
 }
 
 // generateBaseOperation creates the base OpenAPI operation from handler info
-func (r *ForgeRouter) generateBaseOperation(info *HandlerInfo) OpenAPIOperation {
+func (r *SteelRouter) generateBaseOperation(info *HandlerInfo) OpenAPIOperation {
 	operation := OpenAPIOperation{
 		Summary:     info.Summary,
 		Description: info.Description,
@@ -467,7 +467,7 @@ func (r *ForgeRouter) generateBaseOperation(info *HandlerInfo) OpenAPIOperation 
 }
 
 // Enhanced OpenAPI generation to include security
-func (r *ForgeRouter) generateOpenAPIForHandlerWithSecurity(info *HandlerInfo) {
+func (r *SteelRouter) generateOpenAPIForHandlerWithSecurity(info *HandlerInfo) {
 	// Generate base operation
 	operation := r.generateBaseOperation(info)
 

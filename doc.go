@@ -1,10 +1,10 @@
-package forgerouter
+package steel
 
 import (
 	"net/http"
 )
 
-func (r *ForgeRouter) addSwaggerUIEndpoint() {
+func (r *SteelRouter) addSwaggerUIEndpoint() {
 	r.GET("/openapi/swagger", func(w http.ResponseWriter, req *http.Request) {
 		html := `<!DOCTYPE html>
 <html>

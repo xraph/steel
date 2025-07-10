@@ -4,7 +4,7 @@ go 1.23.0
 
 toolchain go1.24.4
 
-replace github.com/xraph/forgerouter => ../
+replace github.com/xraph/steel => ../
 
 require (
 	github.com/gin-gonic/gin v1.9.1
@@ -13,7 +13,7 @@ require (
 	github.com/gorilla/mux v1.8.1
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/labstack/echo/v4 v4.11.4
-	github.com/xraph/forgerouter v0.1.0
+	github.com/xraph/steel v0.1.0
 )
 
 require (

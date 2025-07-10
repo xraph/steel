@@ -1,6 +1,6 @@
 # Sample Benchmark Results
 
-This document shows typical benchmark results you can expect when comparing ForgeRouter against other popular Go routers.
+This document shows typical benchmark results you can expect when comparing Steel against other popular Go routers.
 
 ## Test Environment
 
@@ -15,7 +15,7 @@ This document shows typical benchmark results you can expect when comparing Forg
 | Router | Avg ns/op | Avg B/op | Avg allocs/op | Win % | Tests |
 |--------|-----------|----------|---------------|-------|-------|
 | **HttpRouter** | 68.2 | 0.0 | 0.0 | 45.5% | 64 |
-| **ForgeRouter** | 89.5 | 8.2 | 0.3 | 31.2% | 64 |
+| **Steel** | 89.5 | 8.2 | 0.3 | 31.2% | 64 |
 | **Chi** | 102.7 | 12.5 | 0.5 | 15.6% | 64 |
 | **Gin** | 125.3 | 42.8 | 1.2 | 7.8% | 64 |
 | **Echo** | 134.8 | 48.3 | 1.4 | 0.0% | 64 |
@@ -23,7 +23,7 @@ This document shows typical benchmark results you can expect when comparing Forg
 | **GorillaMux** | 456.7 | 128.6 | 4.2 | 0.0% | 64 |
 
 **🏆 Overall Winner: HttpRouter** - Fastest average performance at 68.2 ns/op  
-**🎯 Best Balance: ForgeRouter** - Great performance with rich features  
+**🎯 Best Balance: Steel** - Great performance with rich features  
 **💾 Most Memory Efficient: HttpRouter** - 0 bytes/op average  
 **⚡ Fewest Allocations: HttpRouter** - 0 allocs/op average
 
@@ -32,7 +32,7 @@ This document shows typical benchmark results you can expect when comparing Forg
 Testing simple static paths like `/`, `/users`, `/api/v1/status`:
 
 ```
-BenchmarkStaticRoutes/ForgeRouter_/-8         	20147832	        59.32 ns/op	       0 B/op	       0 allocs/op
+BenchmarkStaticRoutes/Steel_/-8         	20147832	        59.32 ns/op	       0 B/op	       0 allocs/op
 BenchmarkStaticRoutes/Chi_/-8                	18234567	        65.41 ns/op	       0 B/op	       0 allocs/op
 BenchmarkStaticRoutes/Gin_/-8                	15432109	        77.85 ns/op	       0 B/op	       0 allocs/op
 BenchmarkStaticRoutes/Echo_/-8               	14567834	        82.91 ns/op	       0 B/op	       0 allocs/op
@@ -42,7 +42,7 @@ BenchmarkStaticRoutes/GorillaMux_/-8         	 4234567	       283.45 ns/op	     
 
 ### Analysis
 - **HttpRouter leads** with 48.23 ns/op (baseline)
-- **ForgeRouter** is very competitive at 59.32 ns/op (1.23x slower)
+- **Steel** is very competitive at 59.32 ns/op (1.23x slower)
 - **Chi** follows closely at 65.41 ns/op (1.36x slower)
 - **GorillaMux** is significantly slower at 283.45 ns/op (5.87x slower)
 
@@ -51,7 +51,7 @@ BenchmarkStaticRoutes/GorillaMux_/-8         	 4234567	       283.45 ns/op	     
 Testing parameterized paths like `/users/:id`, `/users/:id/posts/:postId`:
 
 ```
-BenchmarkParameterRoutes/ForgeRouter_/users/123-8         	12345678	        97.23 ns/op	       0 B/op	       0 allocs/op
+BenchmarkParameterRoutes/Steel_/users/123-8         	12345678	        97.23 ns/op	       0 B/op	       0 allocs/op
 BenchmarkParameterRoutes/Chi_/users/123-8                	10987654	       109.76 ns/op	       0 B/op	       0 allocs/op
 BenchmarkParameterRoutes/Gin_/users/123-8                	 9876543	       123.87 ns/op	      32 B/op	       1 allocs/op
 BenchmarkParameterRoutes/Echo_/users/123-8               	 8765432	       138.92 ns/op	      48 B/op	       1 allocs/op
@@ -61,7 +61,7 @@ BenchmarkParameterRoutes/GorillaMux_/users/123-8         	 2345678	       512.34
 
 ### Analysis
 - **Parameter extraction adds overhead** compared to static routes
-- **ForgeRouter's parameter pooling** keeps allocations at zero
+- **Steel's parameter pooling** keeps allocations at zero
 - **Gin and Echo** show memory allocations for parameter handling
 - **GorillaMux** has significant overhead due to regex matching
 
@@ -70,7 +70,7 @@ BenchmarkParameterRoutes/GorillaMux_/users/123-8         	 2345678	       512.34
 Testing nested parameters like `/api/v1/users/:userId/orders/:orderId`:
 
 ```
-BenchmarkParameterRoutes/ForgeRouter_complex-8            	 8765432	       145.67 ns/op	       0 B/op	       0 allocs/op
+BenchmarkParameterRoutes/Steel_complex-8            	 8765432	       145.67 ns/op	       0 B/op	       0 allocs/op
 BenchmarkParameterRoutes/Chi_complex-8                   	 7654321	       162.34 ns/op	       0 B/op	       0 allocs/op
 BenchmarkParameterRoutes/Gin_complex-8                   	 6543210	       189.23 ns/op	      64 B/op	       2 allocs/op
 BenchmarkParameterRoutes/HttpRouter_complex-8            	10987654	       112.45 ns/op	       0 B/op	       0 allocs/op
@@ -79,7 +79,7 @@ BenchmarkParameterRoutes/GorillaMux_complex-8            	 1234567	       897.56
 
 ### Key Insights
 - **Complex routes show bigger performance gaps**
-- **ForgeRouter maintains zero allocations** even with multiple parameters
+- **Steel maintains zero allocations** even with multiple parameters
 - **Memory allocations scale linearly** with parameter count in some routers
 
 ## Wildcard Routes Performance
@@ -87,7 +87,7 @@ BenchmarkParameterRoutes/GorillaMux_complex-8            	 1234567	       897.56
 Testing catch-all routes like `/static/*`:
 
 ```
-BenchmarkWildcardRoutes/ForgeRouter_static-8              	18765432	        64.23 ns/op	       0 B/op	       0 allocs/op
+BenchmarkWildcardRoutes/Steel_static-8              	18765432	        64.23 ns/op	       0 B/op	       0 allocs/op
 BenchmarkWildcardRoutes/Chi_static-8                     	16543210	        72.45 ns/op	       0 B/op	       0 allocs/op
 BenchmarkWildcardRoutes/Gin_static-8                     	14321098	        83.67 ns/op	      32 B/op	       1 allocs/op
 BenchmarkWildcardRoutes/HttpRouter_static-8              	20987654	        57.89 ns/op	       0 B/op	       0 allocs/op
@@ -99,14 +99,14 @@ BenchmarkWildcardRoutes/GorillaMux_static-8              	 5432109	       221.34
 Testing with a simple header-setting middleware:
 
 ```
-BenchmarkWithMiddleware/ForgeRouter-8                     	15432109	        77.82 ns/op	       0 B/op	       0 allocs/op
+BenchmarkWithMiddleware/Steel-8                     	15432109	        77.82 ns/op	       0 B/op	       0 allocs/op
 BenchmarkWithMiddleware/Chi-8                            	13210987	        89.45 ns/op	       0 B/op	       0 allocs/op
 BenchmarkWithMiddleware/Gin-8                            	11098765	       107.23 ns/op	      32 B/op	       1 allocs/op
 ```
 
 ### Middleware Impact
 - **~20-30% overhead** from middleware is typical
-- **ForgeRouter's middleware chain** is efficiently implemented
+- **Steel's middleware chain** is efficiently implemented
 - **Zero allocations maintained** even with middleware
 
 ## Many Routes Scenario (1000+ routes)
@@ -114,7 +114,7 @@ BenchmarkWithMiddleware/Gin-8                            	11098765	       107.23
 Testing lookup performance with 1000 registered routes:
 
 ```
-BenchmarkManyRoutes/ForgeRouter_route999-8                	12345678	        97.45 ns/op	       0 B/op	       0 allocs/op
+BenchmarkManyRoutes/Steel_route999-8                	12345678	        97.45 ns/op	       0 B/op	       0 allocs/op
 BenchmarkManyRoutes/Chi_route999-8                       	10987654	       109.23 ns/op	       0 B/op	       0 allocs/op
 BenchmarkManyRoutes/Gin_route999-8                       	 9876543	       122.78 ns/op	      32 B/op	       1 allocs/op
 BenchmarkManyRoutes/HttpRouter_route999-8                	15432109	        78.34 ns/op	       0 B/op	       0 allocs/op
@@ -122,8 +122,8 @@ BenchmarkManyRoutes/GorillaMux_route999-8                	  234567	      5123.45
 ```
 
 ### Scalability Analysis
-- **ForgeRouter scales well** with route count
-- **Tree-based routers** (ForgeRouter, Chi, HttpRouter) maintain performance
+- **Steel scales well** with route count
+- **Tree-based routers** (Steel, Chi, HttpRouter) maintain performance
 - **GorillaMux shows dramatic slowdown** with many routes (O(n) lookup)
 
 ## Memory Allocation Patterns
@@ -131,7 +131,7 @@ BenchmarkManyRoutes/GorillaMux_route999-8                	  234567	      5123.45
 Focus on garbage collection impact:
 
 ```
-BenchmarkMemoryAllocations/ForgeRouter-8                  	12345678	        89.23 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMemoryAllocations/Steel-8                  	12345678	        89.23 ns/op	       0 B/op	       0 allocs/op
 BenchmarkMemoryAllocations/Chi-8                         	10987654	       102.45 ns/op	       0 B/op	       0 allocs/op
 BenchmarkMemoryAllocations/Gin-8                         	 8765432	       134.67 ns/op	      48 B/op	       1 allocs/op
 BenchmarkMemoryAllocations/Echo-8                        	 7654321	       156.78 ns/op	      64 B/op	       2 allocs/op
@@ -140,7 +140,7 @@ BenchmarkMemoryAllocations/GorillaMux-8                  	 2345678	       512.89
 
 ### GC Impact
 - **Zero allocations = no GC pressure**
-- **ForgeRouter's parameter pooling** eliminates allocation hotspots
+- **Steel's parameter pooling** eliminates allocation hotspots
 - **High-allocation routers** may cause GC pauses under load
 
 ## Concurrent Performance
@@ -148,7 +148,7 @@ BenchmarkMemoryAllocations/GorillaMux-8                  	 2345678	       512.89
 Using `b.RunParallel()` to test concurrent request handling:
 
 ```
-BenchmarkConcurrentRequests/ForgeRouter-8                 	 5432109	       221.34 ns/op	       0 B/op	       0 allocs/op
+BenchmarkConcurrentRequests/Steel-8                 	 5432109	       221.34 ns/op	       0 B/op	       0 allocs/op
 BenchmarkConcurrentRequests/Chi-8                        	 4567890	       262.45 ns/op	       0 B/op	       0 allocs/op
 BenchmarkConcurrentRequests/Gin-8                        	 3456789	       347.56 ns/op	      32 B/op	       1 allocs/op
 BenchmarkConcurrentRequests/HttpRouter-8                 	 6543210	       183.67 ns/op	       0 B/op	       0 allocs/op
@@ -164,7 +164,7 @@ BenchmarkConcurrentRequests/HttpRouter-8                 	 6543210	       183.67
 Rotating through different route types and HTTP methods:
 
 ```
-BenchmarkMixedWorkload/ForgeRouter-8                      	10987654	       109.23 ns/op	       4 B/op	       0 allocs/op
+BenchmarkMixedWorkload/Steel-8                      	10987654	       109.23 ns/op	       4 B/op	       0 allocs/op
 BenchmarkMixedWorkload/Chi-8                             	 9876543	       123.45 ns/op	       6 B/op	       0 allocs/op
 BenchmarkMixedWorkload/Gin-8                             	 7654321	       156.78 ns/op	      38 B/op	       1 allocs/op
 BenchmarkMixedWorkload/HttpRouter-8                      	12345678	        97.34 ns/op	       2 B/op	       0 allocs/op
@@ -173,7 +173,7 @@ BenchmarkMixedWorkload/GorillaMux-8                      	 1234567	       897.65
 
 ## Performance Recommendations
 
-### Choose ForgeRouter When:
+### Choose Steel When:
 - ✅ You need **high performance** with **rich features**
 - ✅ **OpenAPI documentation** generation is important
 - ✅ You want **zero allocations** for parameter handling
@@ -226,7 +226,7 @@ BenchmarkMixedWorkload/GorillaMux-8                      	 1234567	       897.65
 
 ## Conclusion
 
-**ForgeRouter provides an excellent balance** of performance and features:
+**Steel provides an excellent balance** of performance and features:
 
 - **89.5 ns/op average** - Only 31% slower than the fastest HttpRouter
 - **Zero allocations** for most operations - No GC pressure
@@ -234,4 +234,4 @@ BenchmarkMixedWorkload/GorillaMux-8                      	 1234567	       897.65
 - **Scales well** - Performance maintained with many routes
 - **Memory efficient** - 8.2 B/op average vs 42.8 B/op for Gin
 
-For most applications, **ForgeRouter offers the best combination** of speed, features, and developer experience.
+For most applications, **Steel offers the best combination** of speed, features, and developer experience.

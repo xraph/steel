@@ -1,4 +1,4 @@
-package forgerouter
+package steel
 
 import (
 	"context"
@@ -9,11 +9,11 @@ import (
 	json "github.com/json-iterator/go"
 )
 
-// ForgeContext provides a rich context for opinionated handlers
-type ForgeContext struct {
+// Context provides a rich context for opinionated handlers
+type Context struct {
 	Request  *http.Request
 	Response http.ResponseWriter
-	router   *ForgeRouter
+	router   *SteelRouter
 	params   *Params
 }
 
@@ -33,31 +33,31 @@ func URLParam(r *http.Request, key string) string {
 	return params.Get(key)
 }
 
-// Param ForgeContext methods
-func (c *ForgeContext) Param(key string) string {
+// Param Context methods
+func (c *Context) Param(key string) string {
 	return c.params.Get(key)
 }
 
-func (c *ForgeContext) Query(key string) string {
+func (c *Context) Query(key string) string {
 	return c.Request.URL.Query().Get(key)
 }
 
-func (c *ForgeContext) Header(key string) string {
+func (c *Context) Header(key string) string {
 	return c.Request.Header.Get(key)
 }
 
-func (c *ForgeContext) JSON(status int, data interface{}) error {
+func (c *Context) JSON(status int, data interface{}) error {
 	c.Response.Header().Set("Content-Type", "application/json")
 	c.Response.WriteHeader(status)
 	return json.NewEncoder(c.Response).Encode(data)
 }
 
-func (c *ForgeContext) Status(status int) *ForgeContext {
+func (c *Context) Status(status int) *Context {
 	c.Response.WriteHeader(status)
 	return c
 }
 
-func (c *ForgeContext) BindJSON(v interface{}) error {
+func (c *Context) BindJSON(v interface{}) error {
 	return json.NewDecoder(c.Request.Body).Decode(v)
 }
 

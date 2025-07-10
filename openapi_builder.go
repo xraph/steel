@@ -1,4 +1,4 @@
-package forgerouter
+package steel
 
 import (
 	"fmt"
@@ -6,7 +6,7 @@ import (
 
 // OpenAPIBuilder provides a fluent interface for configuring OpenAPI specifications
 type OpenAPIBuilder struct {
-	router          *ForgeRouter
+	router          *SteelRouter
 	info            *OpenAPIInfo
 	servers         []OpenAPIServer
 	securitySchemes map[string]OpenAPISecurityScheme
@@ -18,7 +18,7 @@ type OpenAPIBuilder struct {
 }
 
 // OpenAPI returns a new OpenAPIBuilder for fluent configuration
-func (r *ForgeRouter) OpenAPI() *OpenAPIBuilder {
+func (r *SteelRouter) OpenAPI() *OpenAPIBuilder {
 	return &OpenAPIBuilder{
 		router:          r,
 		info:            &OpenAPIInfo{},
@@ -262,7 +262,7 @@ func (b *OpenAPIBuilder) WithRESTDefaults(title, version string) *OpenAPIBuilder
 	return b.
 		SetTitle(title).
 		SetVersion(version).
-		SetDescription("REST API built with ForgeRouter").
+		SetDescription("REST API built with SteelRouter").
 		AddTag("default", "Default operations").
 		AddDevelopmentServer(8080)
 }
@@ -321,7 +321,7 @@ func (b *OpenAPIBuilder) WithEnterpriseDefaults(title, version string) *OpenAPIB
 // =============================================================================
 
 // Build applies all the configuration to the router and enables OpenAPI
-func (b *OpenAPIBuilder) Build() *ForgeRouter {
+func (b *OpenAPIBuilder) Build() *SteelRouter {
 	// Apply info configuration
 	if b.info.Title != "" || b.info.Version != "" || b.info.Description != "" {
 		// Merge with existing info, preserving any existing values for unset fields

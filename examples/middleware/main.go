@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/xraph/forgerouter"
-	"github.com/xraph/forgerouter/middleware"
+	"github.com/xraph/steel"
+	"github.com/xraph/steel/middleware"
 )
 
 // Example JWT secret (use environment variable in production)
@@ -99,7 +99,7 @@ var userCredentials = map[string]string{
 }
 
 func main() {
-	router := forgerouter.NewRouter()
+	router := steel.NewRouter()
 
 	router.EnableOpenAPI()
 	router.EnableAsyncAPI()
@@ -141,8 +141,8 @@ func main() {
 
 	// Basic middleware
 	router.Use(middleware.RequestID())
-	router.Use(forgerouter.Logger)
-	router.Use(forgerouter.Recoverer)
+	router.Use(steel.Logger)
+	router.Use(steel.Recoverer)
 
 	// Security middleware
 	router.Use(middleware.SecureHeaders())
@@ -210,10 +210,10 @@ func main() {
 	})
 
 	// Custom authorization middleware
-	adminAuth := forgerouter.NewMiddleware("admin_auth").
+	adminAuth := steel.NewMiddleware("admin_auth").
 		Description("Require admin role for access").
 		DependsOn("jwt_auth").
-		Before(func(ctx *forgerouter.MiddlewareContext) error {
+		Before(func(ctx *steel.MiddlewareContext) error {
 			// Extract user roles from JWT claims
 			if claims, exists := ctx.Metadata["jwt_claims"]; exists {
 				if customClaims, ok := claims.(*CustomClaims); ok {
@@ -224,16 +224,16 @@ func main() {
 					}
 				}
 			}
-			return forgerouter.Forbidden("Admin access required")
+			return steel.Forbidden("Admin access required")
 		}).
 		RequiresAuth().
 		AddResponse("403", "Forbidden - Admin access required").
 		Build()
 
 	// Custom audit logging middleware
-	auditLog := forgerouter.NewMiddleware("audit_log").
+	auditLog := steel.NewMiddleware("audit_log").
 		Description("Audit logging for sensitive operations").
-		After(func(ctx *forgerouter.MiddlewareContext) error {
+		After(func(ctx *steel.MiddlewareContext) error {
 			// Log sensitive operations
 			if ctx.Request.Method != "GET" { // Log all non-GET operations
 				userID := middleware.GetUserID(ctx.Request)
@@ -271,12 +271,12 @@ func main() {
 	// Authentication Routes
 	// ==========================================================================
 
-	router.Route("/api/auth", func(r forgerouter.Router) {
+	router.Route("/api/auth", func(r steel.Router) {
 		// Apply strict rate limiting to auth endpoints
 		r.UseOpinionated(strictRateLimit)
 
 		// Login endpoint (no JWT required, but rate limited)
-		r.OpinionatedPOST("/login", func(ctx *forgerouter.ForgeContext, req LoginRequest) (*LoginResponse, error) {
+		r.OpinionatedPOST("/login", func(ctx *steel.Context, req LoginRequest) (*LoginResponse, error) {
 			// Validate credentials
 			expectedPassword, exists := userCredentials[req.Username]
 			if !exists || expectedPassword != req.Password {
@@ -318,9 +318,9 @@ func main() {
 				User:      user,
 			}, nil
 		},
-			forgerouter.WithSummary("User login"),
-			forgerouter.WithDescription("Authenticate user and return JWT token"),
-			forgerouter.WithTags("auth"),
+			steel.WithSummary("User login"),
+			steel.WithDescription("Authenticate user and return JWT token"),
+			steel.WithTags("auth"),
 		)
 	})
 
@@ -328,12 +328,12 @@ func main() {
 	// User Management Routes (requires authentication)
 	// ==========================================================================
 
-	router.Route("/api/users", func(r forgerouter.Router) {
+	router.Route("/api/users", func(r steel.Router) {
 		// Apply authentication and normal rate limiting
 		r.UseOpinionated(normalRateLimit, jwtAuth, auditLog)
 
 		// Get current user info
-		r.OpinionatedGET("/me", func(ctx *forgerouter.ForgeContext, req struct{}) (*GetUserResponse, error) {
+		r.OpinionatedGET("/me", func(ctx *steel.Context, req struct{}) (*GetUserResponse, error) {
 			userID := middleware.GetUserID(ctx.Request)
 			if userID == "" {
 				return nil, ctx.Unauthorized("User ID not found in token")
@@ -346,13 +346,13 @@ func main() {
 
 			return &GetUserResponse{User: user}, nil
 		},
-			forgerouter.WithSummary("Get current user"),
-			forgerouter.WithDescription("Get information about the currently authenticated user"),
-			forgerouter.WithTags("users", "profile"),
+			steel.WithSummary("Get current user"),
+			steel.WithDescription("Get information about the currently authenticated user"),
+			steel.WithTags("users", "profile"),
 		)
 
 		// List users (basic users can see limited info)
-		r.OpinionatedGET("", func(ctx *forgerouter.ForgeContext, req ListUsersRequest) (*ListUsersResponse, error) {
+		r.OpinionatedGET("", func(ctx *steel.Context, req ListUsersRequest) (*ListUsersResponse, error) {
 			// Set defaults
 			if req.Page <= 0 {
 				req.Page = 1
@@ -396,13 +396,13 @@ func main() {
 				Page:  req.Page,
 			}, nil
 		},
-			forgerouter.WithSummary("List users"),
-			forgerouter.WithDescription("List users with optional filtering and pagination"),
-			forgerouter.WithTags("users"),
+			steel.WithSummary("List users"),
+			steel.WithDescription("List users with optional filtering and pagination"),
+			steel.WithTags("users"),
 		)
 
 		// Get specific user
-		r.OpinionatedGET("/{user_id}", func(ctx *forgerouter.ForgeContext, req GetUserRequest) (*GetUserResponse, error) {
+		r.OpinionatedGET("/{user_id}", func(ctx *steel.Context, req GetUserRequest) (*GetUserResponse, error) {
 			user, exists := users[req.UserID]
 			if !exists {
 				return nil, ctx.NotFound("User")
@@ -410,9 +410,9 @@ func main() {
 
 			return &GetUserResponse{User: user}, nil
 		},
-			forgerouter.WithSummary("Get user by ID"),
-			forgerouter.WithDescription("Get detailed information about a specific user"),
-			forgerouter.WithTags("users"),
+			steel.WithSummary("Get user by ID"),
+			steel.WithDescription("Get detailed information about a specific user"),
+			steel.WithTags("users"),
 		)
 	})
 
@@ -420,12 +420,12 @@ func main() {
 	// Admin Routes (requires admin role)
 	// ==========================================================================
 
-	router.Route("/api/admin", func(r forgerouter.Router) {
+	router.Route("/api/admin", func(r steel.Router) {
 		// Apply authentication, admin authorization, and audit logging
 		r.UseOpinionated(normalRateLimit, jwtAuth, adminAuth, auditLog)
 
 		// Create new user (admin only)
-		r.OpinionatedPOST("/users", func(ctx *forgerouter.ForgeContext, req CreateUserRequest) (*CreateUserResponse, error) {
+		r.OpinionatedPOST("/users", func(ctx *steel.Context, req CreateUserRequest) (*CreateUserResponse, error) {
 			// Generate user ID
 			userID := generateUserID()
 
@@ -453,13 +453,13 @@ func main() {
 				Message: "User created successfully",
 			}, nil
 		},
-			forgerouter.WithSummary("Create new user"),
-			forgerouter.WithDescription("Create a new user (admin only)"),
-			forgerouter.WithTags("admin", "users"),
+			steel.WithSummary("Create new user"),
+			steel.WithDescription("Create a new user (admin only)"),
+			steel.WithTags("admin", "users"),
 		)
 
 		// Admin-only user statistics
-		r.OpinionatedGET("/stats", func(ctx *forgerouter.ForgeContext, req struct{}) (*struct {
+		r.OpinionatedGET("/stats", func(ctx *steel.Context, req struct{}) (*struct {
 			TotalUsers     int                    `json:"total_users"`
 			UsersByRole    map[string]int         `json:"users_by_role"`
 			RequestMetrics map[string]interface{} `json:"request_metrics"`
@@ -482,9 +482,9 @@ func main() {
 				RequestMetrics: metrics.GetStats(),
 			}, nil
 		},
-			forgerouter.WithSummary("Get admin statistics"),
-			forgerouter.WithDescription("Get comprehensive statistics (admin only)"),
-			forgerouter.WithTags("admin", "metrics"),
+			steel.WithSummary("Get admin statistics"),
+			steel.WithDescription("Get comprehensive statistics (admin only)"),
+			steel.WithTags("admin", "metrics"),
 		)
 	})
 

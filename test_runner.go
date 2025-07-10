@@ -1,4 +1,4 @@
-package forgerouter
+package steel
 
 import (
 	"fmt"
@@ -17,7 +17,7 @@ func ExampleTestUsage(t *testing.T) {
 		WithCORS().
 		WithAuth("test-token").
 		WithRoute("GET", "/health", MockHandler(http.StatusOK, "OK")).
-		WithOpinionatedRoute("GET", "/users/:id", func(ctx *ForgeContext, req struct {
+		WithOpinionatedRoute("GET", "/users/:id", func(ctx *Context, req struct {
 			ID int `path:"id"`
 		}) (*map[string]interface{}, error) {
 			user := map[string]interface{}{
@@ -55,7 +55,7 @@ func ExampleTestUsage(t *testing.T) {
 
 	// Example 3: Testing with POST body
 	t.Run("POST Request", func(t *testing.T) {
-		router.OpinionatedPOST("/users", func(ctx *ForgeContext, req struct {
+		router.OpinionatedPOST("/users", func(ctx *Context, req struct {
 			Name  string `json:"name" body:"body"`
 			Email string `json:"email" body:"body"`
 		}) (*map[string]interface{}, error) {
@@ -87,7 +87,7 @@ func ExampleTestUsage(t *testing.T) {
 
 	// Example 4: Error handling
 	t.Run("Error Handling", func(t *testing.T) {
-		router.OpinionatedGET("/error", func(ctx *ForgeContext, req struct{}) (*struct{}, error) {
+		router.OpinionatedGET("/error", func(ctx *Context, req struct{}) (*struct{}, error) {
 			return nil, BadRequest("Something went wrong")
 		})
 
@@ -251,18 +251,18 @@ func ExampleErrorTesting(t *testing.T) {
 	router := NewRouter()
 
 	// Add error handlers
-	router.OpinionatedGET("/bad-request", func(ctx *ForgeContext, req struct{}) (*struct{}, error) {
+	router.OpinionatedGET("/bad-request", func(ctx *Context, req struct{}) (*struct{}, error) {
 		return nil, BadRequest("Bad request error")
 	})
 
-	router.OpinionatedGET("/validation-error", func(ctx *ForgeContext, req struct{}) (*struct{}, error) {
+	router.OpinionatedGET("/validation-error", func(ctx *Context, req struct{}) (*struct{}, error) {
 		fields := []FieldError{
 			NewFieldError("email", "Invalid email", "invalid", "INVALID_EMAIL"),
 		}
 		return nil, UnprocessableEntity("Validation failed", fields...)
 	})
 
-	router.OpinionatedGET("/custom-error", func(ctx *ForgeContext, req struct{}) (*struct{}, error) {
+	router.OpinionatedGET("/custom-error", func(ctx *Context, req struct{}) (*struct{}, error) {
 		return nil, NewBusinessError(http.StatusConflict, "BUSINESS_RULE", "Business rule violation", nil)
 	})
 
@@ -383,7 +383,7 @@ func ExampleParameterTesting(t *testing.T) {
 	router := NewRouter()
 
 	// Add route with complex parameters
-	router.OpinionatedGET("/users/:id", func(ctx *ForgeContext, req struct {
+	router.OpinionatedGET("/users/:id", func(ctx *Context, req struct {
 		ID       int    `path:"id"`
 		Include  string `query:"include"`
 		Format   string `query:"format"`
@@ -447,7 +447,7 @@ func ExampleOpenAPITesting(t *testing.T) {
 	router := NewRouter()
 
 	// Add opinionated routes
-	router.OpinionatedGET("/users/:id", func(ctx *ForgeContext, req struct {
+	router.OpinionatedGET("/users/:id", func(ctx *Context, req struct {
 		ID int `path:"id"`
 	}) (*struct {
 		ID   int    `json:"id"`
@@ -462,7 +462,7 @@ func ExampleOpenAPITesting(t *testing.T) {
 		}, nil
 	}, WithSummary("Get User"), WithDescription("Get user by ID"), WithTags("users"))
 
-	router.OpinionatedPOST("/users", func(ctx *ForgeContext, req struct {
+	router.OpinionatedPOST("/users", func(ctx *Context, req struct {
 		Name  string `json:"name" body:"body"`
 		Email string `json:"email" body:"body"`
 	}) (*struct {
@@ -535,7 +535,7 @@ func TestTableDriven(t *testing.T) {
 	router := NewRouter()
 
 	// Add route with validation
-	router.OpinionatedPOST("/validate", func(ctx *ForgeContext, req struct {
+	router.OpinionatedPOST("/validate", func(ctx *Context, req struct {
 		Age int `json:"age" body:"body"`
 	}) (*struct {
 		Valid bool `json:"valid"`

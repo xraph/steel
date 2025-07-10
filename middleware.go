@@ -1,4 +1,4 @@
-package forgerouter
+package steel
 
 import (
 	"fmt"
@@ -22,7 +22,7 @@ type OpinionatedMiddleware interface {
 
 // MiddlewareContext provides rich context for opinionated middleware
 type MiddlewareContext struct {
-	*ForgeContext
+	*Context
 
 	// Request metadata
 	StartTime time.Time
@@ -276,12 +276,12 @@ func (m *builtMiddleware) GetMetadata() MiddlewareMetadata {
 
 // TypedMiddleware provides type-safe middleware for specific input/output types
 type TypedMiddleware[TInput any, TOutput any] interface {
-	Process(ctx *ForgeContext, input *TInput, output *TOutput, next TypedNext[TInput, TOutput]) error
+	Process(ctx *Context, input *TInput, output *TOutput, next TypedNext[TInput, TOutput]) error
 	GetMetadata() MiddlewareMetadata
 }
 
 // TypedNext represents the next handler for typed middleware
-type TypedNext[TInput any, TOutput any] func(ctx *ForgeContext, input *TInput) (*TOutput, error)
+type TypedNext[TInput any, TOutput any] func(ctx *Context, input *TInput) (*TOutput, error)
 
 // TypedMiddlewareAdapter adapts typed middleware to opinionated middleware
 func TypedMiddlewareAdapter[TInput any, TOutput any](typed TypedMiddleware[TInput, TOutput]) OpinionatedMiddleware {
@@ -305,7 +305,7 @@ func (a *typedMiddlewareAdapter[TInput, TOutput]) Process(ctx *MiddlewareContext
 		output = ctx.OutputValue.Addr().Interface().(*TOutput)
 	}
 
-	typedNext := func(ctx *ForgeContext, input *TInput) (*TOutput, error) {
+	typedNext := func(ctx *Context, input *TInput) (*TOutput, error) {
 		// Call the original next function
 		err := next()
 		if err != nil {
@@ -314,7 +314,7 @@ func (a *typedMiddlewareAdapter[TInput, TOutput]) Process(ctx *MiddlewareContext
 		return output, nil
 	}
 
-	return a.typed.Process(ctx.ForgeContext, input, output, typedNext)
+	return a.typed.Process(ctx.Context, input, output, typedNext)
 }
 
 func (a *typedMiddlewareAdapter[TInput, TOutput]) GetMetadata() MiddlewareMetadata {
@@ -328,11 +328,11 @@ func (a *typedMiddlewareAdapter[TInput, TOutput]) GetMetadata() MiddlewareMetada
 // MiddlewareChain manages a chain of opinionated middleware
 type MiddlewareChain struct {
 	middlewares []OpinionatedMiddleware
-	router      *ForgeRouter
+	router      *SteelRouter
 }
 
 // NewMiddlewareChain creates a new middleware chain
-func NewMiddlewareChain(router *ForgeRouter) *MiddlewareChain {
+func NewMiddlewareChain(router *SteelRouter) *MiddlewareChain {
 	return &MiddlewareChain{
 		middlewares: make([]OpinionatedMiddleware, 0),
 		router:      router,
@@ -442,7 +442,7 @@ type OpenAPIEnhancements struct {
 // =============================================================================
 
 // // WithBasicSecurity adds basic security middleware (CORS, Security Headers, Request ID)
-// func (r *ForgeRouter) WithBasicSecurity(corsConfig ...CORSConfig) *ForgeRouter {
+// func (r *SteelRouter) WithBasicSecurity(corsConfig ...CORSConfig) *SteelRouter {
 // 	r.UseOpinionated(
 // 		OpinionatedRequestID(),
 // 		OpinionatedCORS(corsConfig...),
@@ -455,7 +455,7 @@ type OpenAPIEnhancements struct {
 // }
 //
 // // WithAuthentication adds JWT authentication with optional rate limiting
-// func (r *ForgeRouter) WithAuthentication(jwtConfig JWTConfig, rateLimitConfig ...RateLimitConfig) *ForgeRouter {
+// func (r *SteelRouter) WithAuthentication(jwtConfig JWTConfig, rateLimitConfig ...RateLimitConfig) *SteelRouter {
 // 	r.UseOpinionated(OpinionatedJWT(jwtConfig))
 //
 // 	if len(rateLimitConfig) > 0 {
@@ -466,7 +466,7 @@ type OpenAPIEnhancements struct {
 // }
 //
 // // WithFullStack adds a complete middleware stack for production
-// func (r *ForgeRouter) WithFullStack(jwtConfig JWTConfig) *ForgeRouter {
+// func (r *SteelRouter) WithFullStack(jwtConfig JWTConfig) *SteelRouter {
 // 	// Add regular middleware first
 // 	r.Use(RequestID())
 // 	r.Use(Logger)
@@ -489,7 +489,7 @@ type OpenAPIEnhancements struct {
 // }
 //
 // // WithDevelopment adds middleware suitable for development
-// func (r *ForgeRouter) WithDevelopment() *ForgeRouter {
+// func (r *SteelRouter) WithDevelopment() *SteelRouter {
 // 	r.Use(RequestID())
 // 	r.Use(Logger)
 // 	r.Use(Recoverer)
@@ -511,7 +511,7 @@ type OpenAPIEnhancements struct {
 // =============================================================================
 
 // UseOpinionated adds opinionated middleware to the router
-func (r *ForgeRouter) UseOpinionated(middleware ...OpinionatedMiddleware) {
+func (r *SteelRouter) UseOpinionated(middleware ...OpinionatedMiddleware) {
 	if r.opinionatedMiddleware == nil {
 		r.opinionatedMiddleware = NewMiddlewareChain(r)
 	}
@@ -519,14 +519,14 @@ func (r *ForgeRouter) UseOpinionated(middleware ...OpinionatedMiddleware) {
 }
 
 // UseOpinionatedIf conditionally adds opinionated middleware
-func (r *ForgeRouter) UseOpinionatedIf(condition bool, middleware ...OpinionatedMiddleware) {
+func (r *SteelRouter) UseOpinionatedIf(condition bool, middleware ...OpinionatedMiddleware) {
 	if condition {
 		r.UseOpinionated(middleware...)
 	}
 }
 
 // GetOpinionatedMiddleware returns the opinionated middleware chain
-func (r *ForgeRouter) GetOpinionatedMiddleware() *MiddlewareChain {
+func (r *SteelRouter) GetOpinionatedMiddleware() *MiddlewareChain {
 	if r.opinionatedMiddleware == nil {
 		r.opinionatedMiddleware = NewMiddlewareChain(r)
 	}
@@ -538,7 +538,7 @@ func (r *ForgeRouter) GetOpinionatedMiddleware() *MiddlewareChain {
 // =============================================================================
 
 // ValidateMiddleware validates the middleware configuration
-func (r *ForgeRouter) ValidateMiddleware() error {
+func (r *SteelRouter) ValidateMiddleware() error {
 	if r.opinionatedMiddleware == nil {
 		return nil // No middleware to validate
 	}
@@ -547,7 +547,7 @@ func (r *ForgeRouter) ValidateMiddleware() error {
 }
 
 // GetMiddlewareInfo returns information about registered middleware
-func (r *ForgeRouter) GetMiddlewareInfo() []MiddlewareMetadata {
+func (r *SteelRouter) GetMiddlewareInfo() []MiddlewareMetadata {
 	if r.opinionatedMiddleware == nil {
 		return []MiddlewareMetadata{}
 	}
@@ -561,7 +561,7 @@ func (r *ForgeRouter) GetMiddlewareInfo() []MiddlewareMetadata {
 }
 
 // PrintMiddlewareInfo prints middleware information for debugging
-func (r *ForgeRouter) PrintMiddlewareInfo() {
+func (r *SteelRouter) PrintMiddlewareInfo() {
 	info := r.GetMiddlewareInfo()
 	if len(info) == 0 {
 		fmt.Println("No opinionated middleware registered")

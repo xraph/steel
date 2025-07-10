@@ -1,17 +1,17 @@
 # Router Benchmark Comparison
 
-A comprehensive benchmark suite comparing ForgeRouter against popular Go HTTP routers including Chi, Gin, Fiber, Echo, HttpRouter, and Gorilla Mux.
+A comprehensive benchmark suite comparing Steel against popular Go HTTP routers including Chi, Gin, Fiber, Echo, HttpRouter, and Gorilla Mux.
 
 ## Routers Tested
 
-| Router | Version | Description |
-|--------|---------|-------------|
-| **ForgeRouter** | v0.1.0 | Our custom high-performance router with OpenAPI support |
-| **Chi** | v5.0.10 | Lightweight, idiomatic router for Go HTTP services |
-| **Gin** | v1.9.1 | Popular web framework with focus on performance |
-| **Fiber** | v2.52.0 | Express-inspired framework built on Fasthttp |
-| **Echo** | v4.11.4 | High performance, minimalist web framework |
-| **HttpRouter** | v1.3.0 | Lightning fast HTTP router with zero allocations |
+| Router          | Version | Description |
+|-----------------|---------|-------------|
+| **Steel**       | v0.1.0 | Our custom high-performance router with OpenAPI support |
+| **Chi**         | v5.0.10 | Lightweight, idiomatic router for Go HTTP services |
+| **Gin**         | v1.9.1 | Popular web framework with focus on performance |
+| **Fiber**       | v2.52.0 | Express-inspired framework built on Fasthttp |
+| **Echo**        | v4.11.4 | High performance, minimalist web framework |
+| **HttpRouter**  | v1.3.0 | Lightning fast HTTP router with zero allocations |
 | **Gorilla Mux** | v1.8.1 | Powerful URL router and dispatcher |
 
 ## Benchmark Categories
@@ -107,7 +107,7 @@ Results are saved in the `results/` directory:
 
 ### Speed Rankings (Typical)
 1. **HttpRouter** - Fastest, zero allocations
-2. **ForgeRouter** - High performance with rich features
+2. **Steel** - High performance with rich features
 3. **Chi** - Fast and lightweight
 4. **Gin** - Good performance with framework features
 5. **Echo** - Solid performance
@@ -116,7 +116,7 @@ Results are saved in the `results/` directory:
 
 ### Memory Efficiency Rankings (Typical)
 1. **HttpRouter** - Zero allocations for most routes
-2. **ForgeRouter** - Efficient parameter pooling
+2. **Steel** - Efficient parameter pooling
 3. **Chi** - Minimal allocations
 4. **Gin** - Moderate allocations
 5. **Echo** - Moderate allocations
@@ -125,7 +125,7 @@ Results are saved in the `results/` directory:
 ### Feature Richness vs Performance
 
 ```
-High Performance, High Features │ ForgeRouter
+High Performance, High Features │ Steel
                                 │ Gin, Echo
                                 │
 Low Performance, High Features  │ Gorilla Mux
@@ -151,7 +151,7 @@ Low Performance, High Features  │ Gorilla Mux
 ### Sample Output
 
 ```
-BenchmarkStaticRoutes/ForgeRouter_/-8         20000000    85.2 ns/op    0 B/op    0 allocs/op
+BenchmarkStaticRoutes/Steel_/-8         20000000    85.2 ns/op    0 B/op    0 allocs/op
 BenchmarkStaticRoutes/Chi_/-8                18000000    89.1 ns/op    0 B/op    0 allocs/op  
 BenchmarkStaticRoutes/HttpRouter_/-8         25000000    68.3 ns/op    0 B/op    0 allocs/op
 BenchmarkStaticRoutes/Gin_/-8                15000000    95.7 ns/op   32 B/op    1 allocs/op
@@ -159,7 +159,7 @@ BenchmarkStaticRoutes/Gin_/-8                15000000    95.7 ns/op   32 B/op   
 
 ## Optimization Notes
 
-### ForgeRouter Optimizations
+### Steel Optimizations
 
 1. **Parameter Pooling**: Reuses parameter objects to reduce allocations
 2. **Efficient Tree Structure**: Radix tree with optimized node traversal
@@ -189,7 +189,7 @@ BenchmarkStaticRoutes/Gin_/-8                15000000    95.7 ns/op   32 B/op   
 
 ### Common Issues
 
-1. **Module Path Error**: Update `go.mod` with correct ForgeRouter import path
+1. **Module Path Error**: Update `go.mod` with correct Steel import path
 2. **Dependency Issues**: Run `go mod tidy` to resolve dependencies
 3. **Out of Memory**: Reduce benchmark iterations or use machine with more RAM
 4. **Timeout**: Increase timeout with `-timeout=60m` flag
@@ -213,7 +213,7 @@ To add new routers or benchmark scenarios:
 
 ## License
 
-This benchmark suite is provided under the same license as ForgeRouter.
+This benchmark suite is provided under the same license as Steel.
 
 ---
 

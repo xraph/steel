@@ -1,4 +1,4 @@
-package forgerouter
+package steel
 
 import (
 	"net/http"
@@ -6,7 +6,7 @@ import (
 
 // RouteGroup Standard router types (keeping existing functionality)
 type RouteGroup struct {
-	router     *ForgeRouter
+	router     *SteelRouter
 	prefix     string
 	middleware []MiddlewareFunc
 }

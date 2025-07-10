@@ -10,9 +10,9 @@ import (
 
 // TestBenchmarkSetup verifies that all routers are correctly configured
 func TestBenchmarkSetup(t *testing.T) {
-	t.Run("ForgeRouter Setup", func(t *testing.T) {
-		router := setupForgeRouter()
-		testRouter(t, router, "ForgeRouter")
+	t.Run("Steel Setup", func(t *testing.T) {
+		router := setupSteel()
+		testRouter(t, router, "Steel")
 	})
 
 	t.Run("Chi Setup", func(t *testing.T) {
@@ -105,9 +105,9 @@ func testFiber(t *testing.T, app *fiber.App) {
 // BenchmarkQuickComparison - A quick benchmark for development
 func BenchmarkQuickComparison(b *testing.B) {
 	routers := map[string]http.Handler{
-		"ForgeRouter": setupForgeRouter(),
-		"Chi":         setupChi(),
-		"Gin":         setupGin(),
+		"Steel": setupSteel(),
+		"Chi":   setupChi(),
+		"Gin":   setupGin(),
 		// "HttpRouter": setupHttpRouter(),
 	}
 
@@ -146,7 +146,7 @@ go test -bench=BenchmarkStaticRoutes -benchmem
 go test -bench=BenchmarkParameterRoutes -benchmem
 
 # Test specific router
-go test -bench=BenchmarkStaticRoutes.*ForgeRouter -benchmem
+go test -bench=BenchmarkStaticRoutes.*Steel -benchmem
 
 # Test with more iterations for accuracy
 go test -bench=BenchmarkQuickComparison -benchmem -count=5
@@ -172,7 +172,7 @@ go run visualization.go results/complete_results.txt
 
 ### Raw Speed (ns/op - lower is better)
 1. HttpRouter      (~50-80 ns/op)
-2. ForgeRouter      (~70-100 ns/op)
+2. Steel      (~70-100 ns/op)
 3. Chi             (~80-120 ns/op)
 4. Gin             (~90-140 ns/op)
 5. Echo            (~100-150 ns/op)
@@ -183,7 +183,7 @@ go run visualization.go results/complete_results.txt
 
 ### Memory Efficiency (B/op - lower is better)
 1. HttpRouter      (0 B/op for most routes)
-2. ForgeRouter      (0-32 B/op)
+2. Steel      (0-32 B/op)
 3. Chi             (0-48 B/op)
 4. Gin             (32-96 B/op)
 5. Echo            (32-128 B/op)
@@ -191,7 +191,7 @@ go run visualization.go results/complete_results.txt
 
 ### Allocations (allocs/op - lower is better)
 1. HttpRouter      (0 allocs/op)
-2. ForgeRouter      (0-1 allocs/op)
+2. Steel      (0-1 allocs/op)
 3. Chi             (0-2 allocs/op)
 4. Gin             (1-3 allocs/op)
 5. Echo            (1-4 allocs/op)
@@ -208,13 +208,13 @@ go run visualization.go results/complete_results.txt
 
 ### High Performance Applications
 - **HttpRouter**: Maximum speed, minimal features
-- **ForgeRouter**: Great balance of speed and features
+- **Steel**: Great balance of speed and features
 - **Chi**: Lightweight with good performance
 
 ### Full-Featured Applications
 - **Gin**: Popular framework with good performance
 - **Echo**: Modern framework with decent performance
-- **ForgeRouter**: High performance with OpenAPI support
+- **Steel**: High performance with OpenAPI support
 
 ### Legacy Applications
 - **GorillaMux**: Mature but slower, lots of features
@@ -223,7 +223,7 @@ go run visualization.go results/complete_results.txt
 
 ### Static Route Performance
 ```
-BenchmarkStaticRoutes/ForgeRouter_/-8    20000000    85.2 ns/op
+BenchmarkStaticRoutes/Steel_/-8    20000000    85.2 ns/op
 ```
 - 20M operations per second
 - 85.2 nanoseconds per operation
@@ -231,7 +231,7 @@ BenchmarkStaticRoutes/ForgeRouter_/-8    20000000    85.2 ns/op
 
 ### Parameter Route Performance
 ```
-BenchmarkParameterRoutes/ForgeRouter_/users/123-8    10000000    125.5 ns/op    32 B/op    1 allocs/op
+BenchmarkParameterRoutes/Steel_/users/123-8    10000000    125.5 ns/op    32 B/op    1 allocs/op
 ```
 - Parameter extraction adds overhead
 - Memory allocation for parameter storage
@@ -239,7 +239,7 @@ BenchmarkParameterRoutes/ForgeRouter_/users/123-8    10000000    125.5 ns/op    
 
 ### Memory Pressure
 ```
-BenchmarkMemoryAllocations/ForgeRouter-8    5000000    95.2 ns/op    0 B/op    0 allocs/op
+BenchmarkMemoryAllocations/Steel-8    5000000    95.2 ns/op    0 B/op    0 allocs/op
 ```
 - Zero allocations = no garbage collection pressure
 - Important for high-throughput applications

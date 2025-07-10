@@ -1,4 +1,4 @@
-package forgerouter
+package steel
 
 import (
 	"bytes"
@@ -228,7 +228,7 @@ func BenchmarkOpinionatedHandlers(b *testing.B) {
 	router := NewRouter()
 
 	// Add opinionated handlers
-	router.OpinionatedGET("/users/:id", func(ctx *ForgeContext, req BenchmarkRequest) (*BenchmarkResponse, error) {
+	router.OpinionatedGET("/users/:id", func(ctx *Context, req BenchmarkRequest) (*BenchmarkResponse, error) {
 		return &BenchmarkResponse{
 			ID:      req.ID,
 			Name:    req.Name,
@@ -237,7 +237,7 @@ func BenchmarkOpinionatedHandlers(b *testing.B) {
 		}, nil
 	})
 
-	router.OpinionatedPOST("/users", func(ctx *ForgeContext, req BenchmarkRequest) (*BenchmarkResponse, error) {
+	router.OpinionatedPOST("/users", func(ctx *Context, req BenchmarkRequest) (*BenchmarkResponse, error) {
 		return &BenchmarkResponse{
 			ID:      999,
 			Name:    req.Name,
@@ -410,7 +410,7 @@ func BenchmarkParameterExtraction(b *testing.B) {
 func BenchmarkJSONHandling(b *testing.B) {
 	router := NewRouter()
 
-	router.OpinionatedPOST("/data", func(ctx *ForgeContext, req BenchmarkRequest) (*BenchmarkResponse, error) {
+	router.OpinionatedPOST("/data", func(ctx *Context, req BenchmarkRequest) (*BenchmarkResponse, error) {
 		return &BenchmarkResponse{
 			ID:      req.ID,
 			Name:    req.Name,
@@ -445,7 +445,7 @@ func BenchmarkJSONHandling(b *testing.B) {
 func BenchmarkErrorHandling(b *testing.B) {
 	router := NewRouter()
 
-	router.OpinionatedGET("/error", func(ctx *ForgeContext, req struct{}) (*struct{}, error) {
+	router.OpinionatedGET("/error", func(ctx *Context, req struct{}) (*struct{}, error) {
 		return nil, BadRequest("Test error for benchmarking")
 	})
 
@@ -569,7 +569,7 @@ func BenchmarkTypeConversion(b *testing.B) {
 		Active bool    `query:"active"`
 	}
 
-	router.OpinionatedGET("/convert/:id", func(ctx *ForgeContext, req TypeConversionRequest) (*TypeConversionRequest, error) {
+	router.OpinionatedGET("/convert/:id", func(ctx *Context, req TypeConversionRequest) (*TypeConversionRequest, error) {
 		return &req, nil
 	})
 
@@ -673,7 +673,7 @@ func BenchmarkRequestParsing(b *testing.B) {
 		Headers string `header:"Authorization"`
 	}
 
-	router.OpinionatedGET("/parse/:id", func(ctx *ForgeContext, req ParseRequest) (*ParseRequest, error) {
+	router.OpinionatedGET("/parse/:id", func(ctx *Context, req ParseRequest) (*ParseRequest, error) {
 		return &req, nil
 	})
 
@@ -709,7 +709,7 @@ func BenchmarkResponseSerialization(b *testing.B) {
 		Description string                 `json:"description"`
 	}
 
-	router.OpinionatedGET("/large", func(ctx *ForgeContext, req struct{}) (*LargeResponse, error) {
+	router.OpinionatedGET("/large", func(ctx *Context, req struct{}) (*LargeResponse, error) {
 		return &LargeResponse{
 			ID:          12345,
 			Name:        "Test User",
@@ -836,7 +836,7 @@ func BenchmarkComplexParameters(b *testing.B) {
 	}
 
 	router.OpinionatedGET("/users/:userId/posts/:postId/comments/:commentId",
-		func(ctx *ForgeContext, req ComplexParams) (*ComplexParams, error) {
+		func(ctx *Context, req ComplexParams) (*ComplexParams, error) {
 			return &req, nil
 		})
 
@@ -924,13 +924,13 @@ func BenchmarkStdLibRouter(b *testing.B) {
 	}
 }
 
-func BenchmarkForgeRouterVsStdLib(b *testing.B) {
-	forgeRouter := NewRouter()
-	forgeRouter.GET("/", func(w http.ResponseWriter, r *http.Request) {
+func BenchmarkSteelRouterVsStdLib(b *testing.B) {
+	steelRouter := NewRouter()
+	steelRouter.GET("/", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	})
-	forgeRouter.GET("/about", func(w http.ResponseWriter, r *http.Request) {
+	steelRouter.GET("/about", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("About"))
 	})
@@ -946,7 +946,7 @@ func BenchmarkForgeRouterVsStdLib(b *testing.B) {
 		req := httptest.NewRequest("GET", path, nil)
 		w := httptest.NewRecorder()
 
-		forgeRouter.ServeHTTP(w, req)
+		steelRouter.ServeHTTP(w, req)
 
 		if w.Code != http.StatusOK {
 			b.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)

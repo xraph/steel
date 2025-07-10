@@ -1,10 +1,10 @@
-# Forge Router 🚀
+# Steel Router 🚀
 
 A high-performance HTTP router for Go with automatic OpenAPI documentation, WebSocket/SSE support, and comprehensive testing utilities.
 
 [![Go Version](https://img.shields.io/badge/go-1.24+-blue.svg)](https://golang.org)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Go Report Card](https://goreportcard.com/badge/github.com/xraph/forgerouter)](https://goreportcard.com/report/github.com/xraph/forgerouter)
+[![Go Report Card](https://goreportcard.com/badge/github.com/xraph/steel)](https://goreportcard.com/report/github.com/xraph/steel)
 
 ## ✨ Features
 
@@ -20,7 +20,7 @@ A high-performance HTTP router for Go with automatic OpenAPI documentation, WebS
 ## 📦 Installation
 
 ```bash
-go get github.com/xraph/forgerouter
+go get github.com/xraph/steel
 ```
 
 ## 🚀 Quick Start
@@ -31,7 +31,8 @@ package main
 import (
     "log"
     "net/http"
-    router "github.com/xraph/forgerouter"
+    
+	"github.com/xraph/steel"
 )
 
 type User struct {
@@ -46,19 +47,19 @@ type UserResponse struct {
 }
 
 func main() {
-    r := router.NewRouter()
+    r := steel.NewRouter()
     
     // Add middleware
-    r.Use(router.Logger, router.Recoverer)
+    r.Use(steel.Logger, steel.Recoverer)
     
     // Opinionated handler with automatic OpenAPI generation
-    r.OpinionatedGET("/users/:id", func(ctx *router.ForgeContext, req User) (*UserResponse, error) {
+    r.OpinionatedGET("/users/:id", func(ctx *steel.Context, req User) (*UserResponse, error) {
         return &UserResponse{
             ID:      req.ID,
             Name:    req.Name,
             Created: false,
         }, nil
-    }, router.WithSummary("Get User"), router.WithTags("users"))
+    }, steel.WithSummary("Get User"), steel.WithTags("users"))
     
     // Enable automatic OpenAPI documentation
     r.EnableOpenAPI()
@@ -75,7 +76,7 @@ Visit `http://localhost:8080/openapi/docs` to see your automatically generated A
 
 ### Opinionated Handlers
 
-ForgeRouter's opinionated handlers provide automatic parameter binding, validation, and OpenAPI generation:
+Steel's opinionated handlers provide automatic parameter binding, validation, and OpenAPI generation:
 
 ```go
 type CreateUserRequest struct {
@@ -84,7 +85,7 @@ type CreateUserRequest struct {
     Age   int    `query:"age" description:"User age"`
 }
 
-r.OpinionatedPOST("/users", func(ctx *router.ForgeContext, req CreateUserRequest) (*UserResponse, error) {
+r.OpinionatedPOST("/users", func(ctx *router.Context, req CreateUserRequest) (*UserResponse, error) {
     // Request automatically bound from JSON body and query parameters
     if req.Age < 18 {
         return nil, router.BadRequest("User must be 18 or older")
@@ -122,7 +123,7 @@ r.EnableAsyncAPI()
 Rich error types with automatic OpenAPI documentation:
 
 ```go
-r.OpinionatedGET("/users/:id", func(ctx *router.ForgeContext, req GetUserRequest) (*User, error) {
+r.OpinionatedGET("/users/:id", func(ctx *router.Context, req GetUserRequest) (*User, error) {
     user, exists := database.GetUser(req.ID)
     if !exists {
         return nil, router.NotFound("User")
@@ -218,7 +219,7 @@ r.Use(func(next http.Handler) http.Handler {
 ### Custom Response Types
 
 ```go
-r.OpinionatedPOST("/users", func(ctx *router.ForgeContext, req CreateUserRequest) (*router.APIResponse, error) {
+r.OpinionatedPOST("/users", func(ctx *router.Context, req CreateUserRequest) (*router.APIResponse, error) {
     user := createUser(req)
     
     return router.Created(user).
@@ -265,7 +266,7 @@ cm.BroadcastSSE(router.SSEMessage{
 
 ## 📊 Documentation Viewers
 
-ForgeRouter supports multiple documentation viewers out of the box:
+Steel supports multiple documentation viewers out of the box:
 
 - **Swagger UI**: Interactive API documentation
 - **ReDoc**: Beautiful, responsive documentation
@@ -324,7 +325,7 @@ type UserService struct {
     db *gorm.DB
 }
 
-func (s *UserService) GetUser(ctx *router.ForgeContext, req GetUserRequest) (*User, error) {
+func (s *UserService) GetUser(ctx *router.Context, req GetUserRequest) (*User, error) {
     var user User
     if err := s.db.First(&user, req.ID).Error; err != nil {
         if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -348,7 +349,7 @@ type CreateUserRequest struct {
     Age   int    `json:"age" validate:"min=18" description:"User age"`
 }
 
-func createUserWithValidation(ctx *router.ForgeContext, req CreateUserRequest) (*User, error) {
+func createUserWithValidation(ctx *router.Context, req CreateUserRequest) (*User, error) {
     if err := validator.New().Struct(req); err != nil {
         var fields []router.FieldError
         for _, err := range err.(validator.ValidationErrors) {
@@ -369,7 +370,7 @@ func createUserWithValidation(ctx *router.ForgeContext, req CreateUserRequest) (
 
 ## 🏗️ Architecture
 
-ForgeRouter is built with performance and developer experience in mind:
+Steel is built with performance and developer experience in mind:
 
 - **Radix Tree Routing**: Efficient O(log n) route matching
 - **Zero Allocations**: Parameter extraction without memory allocations
@@ -402,10 +403,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-- 📖 [Documentation](https://forge-router.xraph.com)
-- 🐛 [Report Bug](https://github.com/xraph/forgerouter/issues)
-- 💡 [Request Feature](https://github.com/xraph/forgerouter/issues)
-- 💬 [Discussions](https://github.com/xraph/forgerouter/discussions)
+- 📖 [Documentation](https://steel.xraph.com)
+- 🐛 [Report Bug](https://github.com/xraph/steel/issues)
+- 💡 [Request Feature](https://github.com/xraph/steel/issues)
+- 💬 [Discussions](https://github.com/xraph/steel/discussions)
 
 ---
 

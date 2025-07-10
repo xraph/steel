@@ -131,7 +131,7 @@ func parseBenchmarkFile(filename string) ([]BenchmarkSummary, error) {
 }
 
 func extractRouterFromBenchmark(benchmarkName string) string {
-	routers := []string{"ForgeRouter", "Chi", "Gin", "Fiber", "Echo", "HttpRouter", "GorillaMux"}
+	routers := []string{"Steel", "Chi", "Gin", "Fiber", "Echo", "HttpRouter", "GorillaMux"}
 
 	for _, router := range routers {
 		if strings.Contains(benchmarkName, router) {

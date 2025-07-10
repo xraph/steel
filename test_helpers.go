@@ -1,4 +1,4 @@
-package forgerouter
+package steel
 
 import (
 	"bytes"
@@ -16,11 +16,11 @@ import (
 // TestServer wraps httptest.Server with router-specific functionality
 type TestServer struct {
 	*httptest.Server
-	Router *ForgeRouter
+	Router *SteelRouter
 }
 
 // NewTestServer creates a new test server with the given router
-func NewTestServer(router *ForgeRouter) *TestServer {
+func NewTestServer(router *SteelRouter) *TestServer {
 	server := httptest.NewServer(router)
 	return &TestServer{
 		Server: server,
@@ -29,7 +29,7 @@ func NewTestServer(router *ForgeRouter) *TestServer {
 }
 
 // NewTestServerTLS creates a new TLS test server with the given router
-func NewTestServerTLS(router *ForgeRouter) *TestServer {
+func NewTestServerTLS(router *SteelRouter) *TestServer {
 	server := httptest.NewTLSServer(router)
 	return &TestServer{
 		Server: server,
@@ -147,7 +147,7 @@ func (rb *RequestBuilder) Build() (*http.Request, error) {
 }
 
 // Execute executes the request against the given router
-func (rb *RequestBuilder) Execute(router *ForgeRouter) *TestResponse {
+func (rb *RequestBuilder) Execute(router *SteelRouter) *TestResponse {
 	req, err := rb.Build()
 	if err != nil {
 		panic(fmt.Sprintf("failed to build request: %v", err))
@@ -317,7 +317,7 @@ func MockErrorHandler(err error) HandlerFunc {
 
 // BenchmarkSetup helps set up benchmarks
 type BenchmarkSetup struct {
-	Router *ForgeRouter
+	Router *SteelRouter
 	Routes []BenchmarkRoute
 }
 
@@ -367,7 +367,7 @@ func (bs *BenchmarkSetup) AddParameterRoutes(count int) *BenchmarkSetup {
 }
 
 // Setup registers all routes with the router
-func (bs *BenchmarkSetup) Setup() *ForgeRouter {
+func (bs *BenchmarkSetup) Setup() *SteelRouter {
 	for _, route := range bs.Routes {
 		bs.Router.Handle(route.Method, route.Path, route.Handler)
 	}
@@ -395,7 +395,7 @@ type LoadTestResult struct {
 }
 
 // RunLoadTest runs a simple load test against the router
-func RunLoadTest(router *ForgeRouter, config LoadTestConfig) LoadTestResult {
+func RunLoadTest(router *SteelRouter, config LoadTestConfig) LoadTestResult {
 	start := time.Now()
 	results := make(chan time.Duration, config.Requests)
 	errors := make(chan error, config.Requests)
@@ -474,7 +474,7 @@ func RunLoadTest(router *ForgeRouter, config LoadTestConfig) LoadTestResult {
 
 // TestRouterBuilder helps build routers for testing
 type TestRouterBuilder struct {
-	router *ForgeRouter
+	router *SteelRouter
 }
 
 // NewTestRouter creates a new test router builder
@@ -575,7 +575,7 @@ func (trb *TestRouterBuilder) WithOpenAPI() *TestRouterBuilder {
 }
 
 // Build returns the configured router
-func (trb *TestRouterBuilder) Build() *ForgeRouter {
+func (trb *TestRouterBuilder) Build() *SteelRouter {
 	return trb.router
 }
 

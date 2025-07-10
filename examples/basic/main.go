@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xraph/forgerouter"
-	"github.com/xraph/forgerouter/middleware"
+	"github.com/xraph/steel"
+	"github.com/xraph/steel/middleware"
 )
 
 // User domain models
@@ -150,7 +150,7 @@ var users = make(map[string]*User)
 var posts = make(map[string]*Post)
 
 // Handler implementations
-func GetUserHandler(ctx *forgerouter.ForgeContext, input GetUserInput) (*GetUserOutput, error) {
+func GetUserHandler(ctx *steel.Context, input GetUserInput) (*GetUserOutput, error) {
 	user, exists := users[input.ID]
 	if !exists {
 		return nil, errors.New("user not found")
@@ -159,10 +159,10 @@ func GetUserHandler(ctx *forgerouter.ForgeContext, input GetUserInput) (*GetUser
 	return &GetUserOutput{User: user}, nil
 }
 
-func CreateUserHandler(ctx *forgerouter.ForgeContext, input CreateUserInput) (*CreateUserOutput, error) {
+func CreateUserHandler(ctx *steel.Context, input CreateUserInput) (*CreateUserOutput, error) {
 	// Check authorization
 	if input.AuthToken != "Bearer valid-token" {
-		return nil, forgerouter.Unauthorized("Authorization required for user deletion")
+		return nil, steel.Unauthorized("Authorization required for user deletion")
 	}
 
 	// Create new user
@@ -182,7 +182,7 @@ func CreateUserHandler(ctx *forgerouter.ForgeContext, input CreateUserInput) (*C
 	}, nil
 }
 
-func UpdateUserHandler(ctx *forgerouter.ForgeContext, input UpdateUserInput) (*UpdateUserOutput, error) {
+func UpdateUserHandler(ctx *steel.Context, input UpdateUserInput) (*UpdateUserOutput, error) {
 	user, exists := users[input.ID]
 	if !exists {
 		return nil, errors.New("user not found")
@@ -203,7 +203,7 @@ func UpdateUserHandler(ctx *forgerouter.ForgeContext, input UpdateUserInput) (*U
 	}, nil
 }
 
-func ListUsersHandler(ctx *forgerouter.ForgeContext, input ListUsersInput) (*ListUsersOutput, error) {
+func ListUsersHandler(ctx *steel.Context, input ListUsersInput) (*ListUsersOutput, error) {
 	// Convert map to slice
 	userList := make([]User, 0, len(users))
 	for _, user := range users {
@@ -232,7 +232,7 @@ func ListUsersHandler(ctx *forgerouter.ForgeContext, input ListUsersInput) (*Lis
 	}, nil
 }
 
-func DeleteUserHandler(ctx *forgerouter.ForgeContext, input DeleteUserInput) (*DeleteUserOutput, error) {
+func DeleteUserHandler(ctx *steel.Context, input DeleteUserInput) (*DeleteUserOutput, error) {
 	_, exists := users[input.ID]
 	if !exists {
 		return nil, errors.New("user not found")
@@ -246,7 +246,7 @@ func DeleteUserHandler(ctx *forgerouter.ForgeContext, input DeleteUserInput) (*D
 	}, nil
 }
 
-func GetUserPostsHandler(ctx *forgerouter.ForgeContext, input GetUserPostsInput) (*GetUserPostsOutput, error) {
+func GetUserPostsHandler(ctx *steel.Context, input GetUserPostsInput) (*GetUserPostsOutput, error) {
 	// Filter posts by user ID
 	userPosts := make([]Post, 0)
 	for _, post := range posts {
@@ -261,7 +261,7 @@ func GetUserPostsHandler(ctx *forgerouter.ForgeContext, input GetUserPostsInput)
 	}, nil
 }
 
-func CreatePostHandler(ctx *forgerouter.ForgeContext, input CreatePostInput) (*CreatePostOutput, error) {
+func CreatePostHandler(ctx *steel.Context, input CreatePostInput) (*CreatePostOutput, error) {
 	// Verify user exists
 	_, exists := users[input.UserID]
 	if !exists {
@@ -284,7 +284,7 @@ func CreatePostHandler(ctx *forgerouter.ForgeContext, input CreatePostInput) (*C
 	}, nil
 }
 
-func SearchHandler(ctx *forgerouter.ForgeContext, input SearchInput) (*SearchOutput, error) {
+func SearchHandler(ctx *steel.Context, input SearchInput) (*SearchOutput, error) {
 	start := time.Now()
 
 	result := &SearchOutput{}
@@ -314,7 +314,7 @@ func SearchHandler(ctx *forgerouter.ForgeContext, input SearchInput) (*SearchOut
 }
 
 // HealthCheckHandler Health check with minimal input/output
-func HealthCheckHandler(ctx *forgerouter.ForgeContext, input struct{}) (*struct {
+func HealthCheckHandler(ctx *steel.Context, input struct{}) (*struct {
 	Status    string    `json:"status"`
 	Timestamp time.Time `json:"timestamp"`
 	Version   string    `json:"version"`
@@ -331,7 +331,7 @@ func HealthCheckHandler(ctx *forgerouter.ForgeContext, input struct{}) (*struct 
 }
 
 func main() {
-	router := forgerouter.NewRouter()
+	router := steel.NewRouter()
 
 	// Enable OpenAPI documentation
 	router.EnableOpenAPI()
@@ -359,64 +359,64 @@ func main() {
 
 	// Health endpoint
 	router.OpinionatedGET("/health", HealthCheckHandler,
-		forgerouter.WithSummary("Health Check"),
-		forgerouter.WithDescription("Returns the health status of the API"),
-		forgerouter.WithTags("system"))
+		steel.WithSummary("Health Check"),
+		steel.WithDescription("Returns the health status of the API"),
+		steel.WithTags("system"))
 
 	// Search endpoint
 	router.OpinionatedGET("/search", SearchHandler,
-		forgerouter.WithSummary("Search"),
-		forgerouter.WithDescription("Search across users and posts"),
-		forgerouter.WithTags("search"))
+		steel.WithSummary("Search"),
+		steel.WithDescription("Search across users and posts"),
+		steel.WithTags("search"))
 
 	// User management API
-	router.Route("/api/v1", func(r forgerouter.Router) {
-		r.Route("/users", func(r forgerouter.Router) {
+	router.Route("/api/v1", func(r steel.Router) {
+		r.Route("/users", func(r steel.Router) {
 			// List users
 			r.OpinionatedGET("/", ListUsersHandler,
-				forgerouter.WithSummary("List Users"),
-				forgerouter.WithDescription("Get paginated list of users with optional search"),
-				forgerouter.WithTags("users"))
+				steel.WithSummary("List Users"),
+				steel.WithDescription("Get paginated list of users with optional search"),
+				steel.WithTags("users"))
 
 			// Create user
 			r.OpinionatedPOST("/", CreateUserHandler,
-				forgerouter.WithSummary("Create User"),
-				forgerouter.WithDescription("Create a new user account"),
-				forgerouter.WithTags("users"))
+				steel.WithSummary("Create User"),
+				steel.WithDescription("Create a new user account"),
+				steel.WithTags("users"))
 
 			// User-specific routes
-			r.Route("/{id}", func(r forgerouter.Router) {
+			r.Route("/{id}", func(r steel.Router) {
 				// Get user
 				r.OpinionatedGET("/", GetUserHandler,
-					forgerouter.WithSummary("Get User"),
-					forgerouter.WithDescription("Get user details by ID"),
-					forgerouter.WithTags("users"))
+					steel.WithSummary("Get User"),
+					steel.WithDescription("Get user details by ID"),
+					steel.WithTags("users"))
 
 				// Update user
 				r.OpinionatedPUT("/", UpdateUserHandler,
-					forgerouter.WithSummary("Update User"),
-					forgerouter.WithDescription("Update user information"),
-					forgerouter.WithTags("users"))
+					steel.WithSummary("Update User"),
+					steel.WithDescription("Update user information"),
+					steel.WithTags("users"))
 
 				// Delete user
 				r.OpinionatedDELETE("/", DeleteUserHandler,
-					forgerouter.WithSummary("Delete User"),
-					forgerouter.WithDescription("Delete user account"),
-					forgerouter.WithTags("users"))
+					steel.WithSummary("Delete User"),
+					steel.WithDescription("Delete user account"),
+					steel.WithTags("users"))
 
 				// User posts
-				r.Route("/posts", func(r forgerouter.Router) {
+				r.Route("/posts", func(r steel.Router) {
 					// Get user's posts
 					r.OpinionatedGET("/", GetUserPostsHandler,
-						forgerouter.WithSummary("Get User Posts"),
-						forgerouter.WithDescription("Get all posts by a specific user"),
-						forgerouter.WithTags("users", "posts"))
+						steel.WithSummary("Get User Posts"),
+						steel.WithDescription("Get all posts by a specific user"),
+						steel.WithTags("users", "posts"))
 
 					// Create post for user
 					r.OpinionatedPOST("/", CreatePostHandler,
-						forgerouter.WithSummary("Create Post"),
-						forgerouter.WithDescription("Create a new post for the user"),
-						forgerouter.WithTags("users", "posts"))
+						steel.WithSummary("Create Post"),
+						steel.WithDescription("Create a new post for the user"),
+						steel.WithTags("users", "posts"))
 				})
 			})
 		})
@@ -427,7 +427,7 @@ func main() {
 		w.Write([]byte("This is a traditional handler"))
 	})
 
-	fmt.Println("🚀 ForgeRouter with Opinionated Handlers")
+	fmt.Println("🚀 SteelRouter with Opinionated Handlers")
 	fmt.Println("=======================================")
 	fmt.Println("Server starting on :8080")
 	fmt.Println("")

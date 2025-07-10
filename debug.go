@@ -1,12 +1,12 @@
-package forgerouter
+package steel
 
 import (
 	"fmt"
 )
 
 // DebugRoutes debug method to inspect the routing tree
-func (r *ForgeRouter) DebugRoutes() {
-	fmt.Println("=== ForgeRouter Debug Info ===")
+func (r *SteelRouter) DebugRoutes() {
+	fmt.Println("=== SteelRouter Debug Info ===")
 	for method, tree := range r.trees {
 		fmt.Printf("Method: %s\n", method)
 		if tree != nil {
@@ -16,7 +16,7 @@ func (r *ForgeRouter) DebugRoutes() {
 	}
 }
 
-func (r *ForgeRouter) debugNode(n *node, indent string) {
+func (r *SteelRouter) debugNode(n *node, indent string) {
 	// fmt.Printf("%sPath: %q, HasHandler: %v, IsParam: %v, ParamName: %q, Wildcard: %v\n",
 	// 	indent, n.path, n.handler != nil, n.isParam, n.paramName, n.wildcard)
 	// for _, child := range n.children {

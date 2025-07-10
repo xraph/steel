@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/xraph/forgerouter"
-	"github.com/xraph/forgerouter/middleware"
+	"github.com/xraph/steel"
+	"github.com/xraph/steel/middleware"
 )
 
 // ChatMessage Example message types for WebSocket
@@ -40,7 +40,7 @@ type NotificationMessage struct {
 }
 
 func main() {
-	router := forgerouter.NewRouter()
+	router := steel.NewRouter()
 
 	// Add debug logging to see what's happening
 	router.Use(func(next http.Handler) http.Handler {
@@ -97,7 +97,7 @@ func main() {
 	router.Use(middleware.Recoverer)
 
 	// WebSocket chat endpoint
-	router.WebSocket("/ws/chat/{room_id}", func(conn *forgerouter.WSConnection, message ChatMessage) (*ChatResponse, error) {
+	router.WebSocket("/ws/chat/{room_id}", func(conn *steel.WSConnection, message ChatMessage) (*ChatResponse, error) {
 		log.Printf("Received chat message from %s in room %s: %s",
 			message.UserID, message.RoomID, message.Message)
 
@@ -106,7 +106,7 @@ func main() {
 		conn.SetMetadata("room_id", message.RoomID)
 
 		// Broadcast message to all connections in the same room
-		broadcastMessage := forgerouter.WSMessage{
+		broadcastMessage := steel.WSMessage{
 			Type: "chat_message",
 			Payload: map[string]interface{}{
 				"user_id":   message.UserID,
@@ -130,13 +130,13 @@ func main() {
 			Timestamp: time.Now(),
 		}, nil
 	},
-		forgerouter.WithAsyncSummary("Real-time chat messaging"),
-		forgerouter.WithAsyncDescription("WebSocket endpoint for real-time chat in rooms"),
-		forgerouter.WithAsyncTags("chat", "websocket", "real-time"),
+		steel.WithAsyncSummary("Real-time chat messaging"),
+		steel.WithAsyncDescription("WebSocket endpoint for real-time chat in rooms"),
+		steel.WithAsyncTags("chat", "websocket", "real-time"),
 	)
 
 	// SSE notifications endpoint
-	router.SSE("/sse/notifications/{user_id}", func(conn *forgerouter.SSEConnection, params NotificationParams) error {
+	router.SSE("/sse/notifications/{user_id}", func(conn *steel.SSEConnection, params NotificationParams) error {
 		log.Printf("Starting SSE for user %s, topics: %s", params.UserID, params.Topics)
 
 		// Set user metadata
@@ -144,7 +144,7 @@ func main() {
 		conn.SetMetadata("topics", params.Topics)
 
 		// Send initial connection message
-		conn.SendMessage(forgerouter.SSEMessage{
+		conn.SendMessage(steel.SSEMessage{
 			Event: "connected",
 			Data: map[string]interface{}{
 				"message": "Connected to notification stream",
@@ -172,7 +172,7 @@ func main() {
 				if conn.IsClosed() {
 					return nil
 				}
-				conn.SendMessage(forgerouter.SSEMessage{
+				conn.SendMessage(steel.SSEMessage{
 					Event: "heartbeat",
 					Data: map[string]interface{}{
 						"timestamp": time.Now(),
@@ -184,13 +184,13 @@ func main() {
 			}
 		}
 	},
-		forgerouter.WithAsyncSummary("Real-time notifications"),
-		forgerouter.WithAsyncDescription("Server-sent events for real-time notifications"),
-		forgerouter.WithAsyncTags("notifications", "sse", "real-time"),
+		steel.WithAsyncSummary("Real-time notifications"),
+		steel.WithAsyncDescription("Server-sent events for real-time notifications"),
+		steel.WithAsyncTags("notifications", "sse", "real-time"),
 	)
 
 	// REST API endpoint to send notifications
-	router.OpinionatedPOST("/api/notifications", func(ctx *forgerouter.ForgeContext, input struct {
+	router.OpinionatedPOST("/api/notifications", func(ctx *steel.Context, input struct {
 		UserID  string `json:"user_id" description:"Target user ID"`
 		Type    string `json:"type" description:"Notification type"`
 		Title   string `json:"title" description:"Notification title"`
@@ -214,7 +214,7 @@ func main() {
 		sent := false
 		for _, sseConn := range cm.SSEConnections() {
 			if userID, ok := sseConn.GetMetadata("user_id"); ok && userID == input.UserID {
-				sseConn.SendMessage(forgerouter.SSEMessage{
+				sseConn.SendMessage(steel.SSEMessage{
 					Event: "notification",
 					Data:  notification,
 				})
@@ -234,13 +234,13 @@ func main() {
 			Message: "Notification sent successfully",
 		}, nil
 	},
-		forgerouter.WithSummary("Send notification to user"),
-		forgerouter.WithDescription("Send a notification to a specific user via SSE"),
-		forgerouter.WithTags("notifications", "api"),
+		steel.WithSummary("Send notification to user"),
+		steel.WithDescription("Send a notification to a specific user via SSE"),
+		steel.WithTags("notifications", "api"),
 	)
 
 	// WebSocket endpoint for system-wide broadcasts
-	router.WebSocket("/ws/system", func(conn *forgerouter.WSConnection, message struct {
+	router.WebSocket("/ws/system", func(conn *steel.WSConnection, message struct {
 		Type    string      `json:"type" description:"Message type"`
 		Payload interface{} `json:"payload" description:"Message payload"`
 	}) (*struct {
@@ -250,7 +250,7 @@ func main() {
 		log.Printf("System message: %s", message.Type)
 
 		// Broadcast to all connected clients
-		broadcastMsg := forgerouter.WSMessage{
+		broadcastMsg := steel.WSMessage{
 			Type:    "system_broadcast",
 			Payload: message.Payload,
 		}
@@ -265,13 +265,13 @@ func main() {
 			Timestamp:    time.Now(),
 		}, nil
 	},
-		forgerouter.WithAsyncSummary("System-wide broadcasts"),
-		forgerouter.WithAsyncDescription("WebSocket for system-wide message broadcasting"),
-		forgerouter.WithAsyncTags("system", "broadcast", "websocket"),
+		steel.WithAsyncSummary("System-wide broadcasts"),
+		steel.WithAsyncDescription("WebSocket for system-wide message broadcasting"),
+		steel.WithAsyncTags("system", "broadcast", "websocket"),
 	)
 
 	// API endpoint for system broadcasts
-	router.OpinionatedPOST("/api/system/broadcast", func(ctx *forgerouter.ForgeContext, input struct {
+	router.OpinionatedPOST("/api/system/broadcast", func(ctx *steel.Context, input struct {
 		Type    string      `json:"type" description:"Broadcast type"`
 		Message interface{} `json:"message" description:"Broadcast message"`
 	}) (*struct {
@@ -279,14 +279,14 @@ func main() {
 		Receivers int  `json:"receivers"`
 	}, error) {
 		// Broadcast via WebSocket
-		wsMessage := forgerouter.WSMessage{
+		wsMessage := steel.WSMessage{
 			Type:    "system_broadcast",
 			Payload: input.Message,
 		}
 		router.ConnectionManager().BroadcastWS(wsMessage)
 
 		// Broadcast via SSE
-		sseMessage := forgerouter.SSEMessage{
+		sseMessage := steel.SSEMessage{
 			Event: "system_broadcast",
 			Data: map[string]interface{}{
 				"type":    input.Type,
@@ -307,13 +307,13 @@ func main() {
 			Receivers: receivers,
 		}, nil
 	},
-		forgerouter.WithSummary("System-wide broadcast"),
-		forgerouter.WithDescription("Send a message to all connected clients via WebSocket and SSE"),
-		forgerouter.WithTags("system", "broadcast", "api"),
+		steel.WithSummary("System-wide broadcast"),
+		steel.WithDescription("Send a message to all connected clients via WebSocket and SSE"),
+		steel.WithTags("system", "broadcast", "api"),
 	)
 
 	// Health check endpoint
-	router.OpinionatedGET("/health", func(ctx *forgerouter.ForgeContext, input struct{}) (*struct {
+	router.OpinionatedGET("/health", func(ctx *steel.Context, input struct{}) (*struct {
 		Status      string    `json:"status"`
 		Timestamp   time.Time `json:"timestamp"`
 		Connections struct {
@@ -343,7 +343,7 @@ func main() {
 				SSE:       sseCount,
 			},
 		}, nil
-	}, forgerouter.WithSummary("Health check with connection stats"))
+	}, steel.WithSummary("Health check with connection stats"))
 
 	// Serve the beautiful new interface
 	router.GET("/", func(w http.ResponseWriter, r *http.Request) {
@@ -352,7 +352,7 @@ func main() {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ForgeRouter Async Demo</title>
+    <title>SteelRouter Async Demo</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -431,7 +431,7 @@ func main() {
                 <div class="flex items-center">
                     <div class="flex-shrink-0">
                         <h1 class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                            ForgeRouter Demo
+                            SteelRouter Demo
                         </h1>
                     </div>
                 </div>

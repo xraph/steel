@@ -1,4 +1,4 @@
-package forgerouter
+package steel
 
 import (
 	"bytes"
@@ -218,7 +218,7 @@ func TestOpinionatedHandlers(t *testing.T) {
 	router := NewRouter()
 
 	// Test successful handler
-	router.OpinionatedGET("/users/:id", func(ctx *ForgeContext, req TestRequest2) (*TestResponse3, error) {
+	router.OpinionatedGET("/users/:id", func(ctx *Context, req TestRequest2) (*TestResponse3, error) {
 		return &TestResponse3{
 			ID:      req.ID,
 			Name:    req.Name,
@@ -228,12 +228,12 @@ func TestOpinionatedHandlers(t *testing.T) {
 	}, WithSummary("Get user"), WithDescription("Get user by ID"))
 
 	// Test error handler
-	router.OpinionatedGET("/users/:id/error", func(ctx *ForgeContext, req TestRequest2) (*TestResponse3, error) {
+	router.OpinionatedGET("/users/:id/error", func(ctx *Context, req TestRequest2) (*TestResponse3, error) {
 		return nil, BadRequest("Invalid request")
 	})
 
 	// Test POST with body
-	router.OpinionatedPOST("/users", func(ctx *ForgeContext, req TestRequest2) (*TestResponse3, error) {
+	router.OpinionatedPOST("/users", func(ctx *Context, req TestRequest2) (*TestResponse3, error) {
 		return &TestResponse3{
 			ID:      999,
 			Name:    req.Name,
@@ -506,7 +506,7 @@ func TestTrailingSlashRedirect(t *testing.T) {
 func TestOpenAPIGeneration(t *testing.T) {
 	router := NewRouter()
 
-	router.OpinionatedGET("/users/:id", func(ctx *ForgeContext, req TestRequest2) (*TestResponse3, error) {
+	router.OpinionatedGET("/users/:id", func(ctx *Context, req TestRequest2) (*TestResponse3, error) {
 		return &TestResponse3{}, nil
 	}, WithSummary("Get user"), WithDescription("Get user by ID"), WithTags("users"))
 
@@ -543,12 +543,12 @@ func TestOpenAPIGeneration(t *testing.T) {
 	}
 }
 
-// TestContextHelpers tests ForgeContext helper methods
+// TestContextHelpers tests Context helper methods
 func TestContextHelpers(t *testing.T) {
 	router := NewRouter()
 
 	router.GET("/test/:id", func(w http.ResponseWriter, r *http.Request) {
-		ctx := &ForgeContext{
+		ctx := &Context{
 			Request:  r,
 			Response: w,
 			router:   router,
@@ -689,7 +689,7 @@ func TestMount(t *testing.T) {
 func TestCustomResponseTypes(t *testing.T) {
 	router := NewRouter()
 
-	router.OpinionatedGET("/test", func(ctx *ForgeContext, req struct{}) (*APIResponse, error) {
+	router.OpinionatedGET("/test", func(ctx *Context, req struct{}) (*APIResponse, error) {
 		return Created(map[string]string{"message": "Resource created"}).WithHeader("X-Custom", "test"), nil
 	})
 
@@ -896,7 +896,7 @@ func TestRouterConfiguration(t *testing.T) {
 func TestHandlerOptions(t *testing.T) {
 	router := NewRouter()
 
-	router.OpinionatedGET("/test", func(ctx *ForgeContext, req struct{}) (*struct{}, error) {
+	router.OpinionatedGET("/test", func(ctx *Context, req struct{}) (*struct{}, error) {
 		return &struct{}{}, nil
 	}, WithSummary("Test summary"), WithDescription("Test description"), WithTags("test", "api"))
 
@@ -930,7 +930,7 @@ func TestTypeConversion(t *testing.T) {
 		Admin bool    `query:"admin"`
 	}
 
-	router.OpinionatedGET("/test/:id", func(ctx *ForgeContext, req TestParams) (*TestParams, error) {
+	router.OpinionatedGET("/test/:id", func(ctx *Context, req TestParams) (*TestParams, error) {
 		return &req, nil
 	})
 
@@ -977,7 +977,7 @@ func TestSchemaGeneration(t *testing.T) {
 		Metadata map[string]string `json:"metadata" description:"User metadata"`
 	}
 
-	router.OpinionatedGET("/test", func(ctx *ForgeContext, req struct{}) (*ComplexType, error) {
+	router.OpinionatedGET("/test", func(ctx *Context, req struct{}) (*ComplexType, error) {
 		return &ComplexType{}, nil
 	})
 

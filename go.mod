@@ -1,4 +1,4 @@
-module github.com/xraph/forgerouter
+module github.com/xraph/steel
 
 go 1.23.0
 

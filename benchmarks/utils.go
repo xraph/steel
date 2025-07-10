@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	// ForgeRouter (our implementation)
-	forge_router "github.com/xraph/forgerouter"
+	// SteelRouter (our implementation)
+	"github.com/xraph/steel"
 
 	// Popular Go routers for comparison
 	"github.com/gin-gonic/gin"
@@ -26,8 +26,8 @@ func simpleHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // Setup functions for each router
-func setupForgeRouter() http.Handler {
-	router := forge_router.NewRouter()
+func setupSteel() http.Handler {
+	router := steel.NewRouter()
 
 	// Static routes
 	router.GET("/", simpleHandler)
@@ -260,7 +260,7 @@ func setupGorillaMux() http.Handler {
 // Benchmark static routes
 func BenchmarkStaticRoutes(b *testing.B) {
 	routers := map[string]http.Handler{
-		"ForgeRouter": setupForgeRouter(),
+		"SteelRouter": setupSteel(),
 		"Chi":         setupChi(),
 		"Gin":         setupGin(),
 		"Echo":        setupEcho(),
@@ -317,7 +317,7 @@ func BenchmarkStaticRoutes(b *testing.B) {
 // Benchmark parameter routes
 func BenchmarkParameterRoutes(b *testing.B) {
 	routers := map[string]http.Handler{
-		"ForgeRouter": setupForgeRouter(),
+		"SteelRouter": setupSteel(),
 		"Chi":         setupChi(),
 		"Gin":         setupGin(),
 		"Echo":        setupEcho(),
@@ -373,7 +373,7 @@ func BenchmarkParameterRoutes(b *testing.B) {
 // Benchmark wildcard routes
 func BenchmarkWildcardRoutes(b *testing.B) {
 	routers := map[string]http.Handler{
-		"ForgeRouter": setupForgeRouter(),
+		"SteelRouter": setupSteel(),
 		"Chi":         setupChi(),
 		"Gin":         setupGin(),
 		"Echo":        setupEcho(),
@@ -436,10 +436,10 @@ func BenchmarkWithMiddleware(b *testing.B) {
 		})
 	}
 
-	// ForgeRouter with middleware
-	forgeRouter := forge_router.NewRouter()
-	forgeRouter.Use(middlewareFunc)
-	forgeRouter.GET("/test", simpleHandler)
+	// SteelRouter with middleware
+	steelRouter := steel.NewRouter()
+	steelRouter.Use(middlewareFunc)
+	steelRouter.GET("/test", simpleHandler)
 
 	// Chi with middleware
 	chiRouter := chi.NewRouter()
@@ -458,7 +458,7 @@ func BenchmarkWithMiddleware(b *testing.B) {
 	})
 
 	routers := map[string]http.Handler{
-		"ForgeRouter": forgeRouter,
+		"SteelRouter": steelRouter,
 		"Chi":         chiRouter,
 		"Gin":         ginRouter,
 	}
@@ -479,10 +479,10 @@ func BenchmarkWithMiddleware(b *testing.B) {
 	}
 }
 
-// Benchmark route lookup performance with many routes
+// BenchmarkManyRoutes Benchmark route lookup performance with many routes
 func BenchmarkManyRoutes(b *testing.B) {
 	// Create routers with many routes
-	forgeRouter := forge_router.NewRouter()
+	steelRouter := steel.NewRouter()
 	chiRouter := chi.NewRouter()
 	gin.SetMode(gin.ReleaseMode)
 	ginRouter := gin.New()
@@ -492,9 +492,9 @@ func BenchmarkManyRoutes(b *testing.B) {
 		path := fmt.Sprintf("/route%d", i)
 		paramPath := fmt.Sprintf("/route%d/:id", i)
 
-		// ForgeRouter
-		forgeRouter.GET(path, simpleHandler)
-		forgeRouter.GET(paramPath, simpleHandler)
+		// SteelRouter
+		steelRouter.GET(path, simpleHandler)
+		steelRouter.GET(paramPath, simpleHandler)
 
 		// Chi
 		chiRouter.Get(path, simpleHandler)
@@ -506,7 +506,7 @@ func BenchmarkManyRoutes(b *testing.B) {
 	}
 
 	routers := map[string]http.Handler{
-		"ForgeRouter": forgeRouter,
+		"SteelRouter": steelRouter,
 		"Chi":         chiRouter,
 		"Gin":         ginRouter,
 	}
@@ -540,7 +540,7 @@ func BenchmarkManyRoutes(b *testing.B) {
 // Memory allocation benchmark
 func BenchmarkMemoryAllocations(b *testing.B) {
 	routers := map[string]http.Handler{
-		"ForgeRouter": setupForgeRouter(),
+		"SteelRouter": setupSteel(),
 		"Chi":         setupChi(),
 		"Gin":         setupGin(),
 		"Echo":        setupEcho(),
@@ -566,7 +566,7 @@ func BenchmarkMemoryAllocations(b *testing.B) {
 // Concurrent request benchmark
 func BenchmarkConcurrentRequests(b *testing.B) {
 	routers := map[string]http.Handler{
-		"ForgeRouter": setupForgeRouter(),
+		"SteelRouter": setupSteel(),
 		"Chi":         setupChi(),
 		"Gin":         setupGin(),
 		"HttpRouter":  setupHttpRouter(),
@@ -593,7 +593,7 @@ func BenchmarkConcurrentRequests(b *testing.B) {
 // Mixed workload benchmark (realistic scenario)
 func BenchmarkMixedWorkload(b *testing.B) {
 	routers := map[string]http.Handler{
-		"ForgeRouter": setupForgeRouter(),
+		"SteelRouter": setupSteel(),
 		"Chi":         setupChi(),
 		"Gin":         setupGin(),
 		"HttpRouter":  setupHttpRouter(),

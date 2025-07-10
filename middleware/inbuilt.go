@@ -17,16 +17,16 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	json "github.com/json-iterator/go"
-	"github.com/xraph/forgerouter"
+	"github.com/xraph/steel"
 	"golang.org/x/time/rate"
 )
 
 // Logger Built-in middleware
-var Logger = forgerouter.Logger
+var Logger = steel.Logger
 
-var Recoverer = forgerouter.Recoverer
+var Recoverer = steel.Recoverer
 
-var Timeout = forgerouter.Timeout
+var Timeout = steel.Timeout
 
 // =============================================================================
 // CORS Middleware
@@ -58,7 +58,7 @@ func DefaultCORSConfig() CORSConfig {
 	}
 }
 
-func CORS(config ...CORSConfig) forgerouter.MiddlewareFunc {
+func CORS(config ...CORSConfig) steel.MiddlewareFunc {
 	cfg := DefaultCORSConfig()
 	if len(config) > 0 {
 		cfg = config[0]
@@ -117,15 +117,15 @@ func CORS(config ...CORSConfig) forgerouter.MiddlewareFunc {
 }
 
 // Opinionated CORS middleware
-func OpinionatedCORS(config ...CORSConfig) forgerouter.OpinionatedMiddleware {
+func OpinionatedCORS(config ...CORSConfig) steel.OpinionatedMiddleware {
 	cfg := DefaultCORSConfig()
 	if len(config) > 0 {
 		cfg = config[0]
 	}
 
-	return forgerouter.NewMiddleware("cors").
+	return steel.NewMiddleware("cors").
 		Description("Cross-Origin Resource Sharing (CORS) middleware").
-		Before(func(ctx *forgerouter.MiddlewareContext) error {
+		Before(func(ctx *steel.MiddlewareContext) error {
 			origin := ctx.Request.Header.Get("Origin")
 
 			// Check if origin is allowed
@@ -274,7 +274,7 @@ func defaultRateLimitKeyFunc(r *http.Request) string {
 	return host
 }
 
-func RateLimit(config RateLimitConfig) forgerouter.MiddlewareFunc {
+func RateLimit(config RateLimitConfig) steel.MiddlewareFunc {
 	if config.RequestsPerSecond <= 0 {
 		config.RequestsPerSecond = 10 // Default 10 RPS
 	}
@@ -314,7 +314,7 @@ func RateLimit(config RateLimitConfig) forgerouter.MiddlewareFunc {
 }
 
 // Opinionated Rate Limiting middleware
-func OpinionatedRateLimit(config RateLimitConfig) forgerouter.OpinionatedMiddleware {
+func OpinionatedRateLimit(config RateLimitConfig) steel.OpinionatedMiddleware {
 	if config.RequestsPerSecond <= 0 {
 		config.RequestsPerSecond = 10
 	}
@@ -328,9 +328,9 @@ func OpinionatedRateLimit(config RateLimitConfig) forgerouter.OpinionatedMiddlew
 		config.Store = NewInMemoryRateLimitStore(config.RequestsPerSecond, config.BurstSize)
 	}
 
-	return forgerouter.NewMiddleware("rate_limit").
+	return steel.NewMiddleware("rate_limit").
 		Description("Rate limiting middleware to prevent abuse").
-		Before(func(ctx *forgerouter.MiddlewareContext) error {
+		Before(func(ctx *steel.MiddlewareContext) error {
 			if config.SkipFunc != nil && config.SkipFunc(ctx.Request) {
 				return nil
 			}
@@ -339,7 +339,7 @@ func OpinionatedRateLimit(config RateLimitConfig) forgerouter.OpinionatedMiddlew
 			limiter := config.Store.GetLimiter(key)
 
 			if !limiter.Allow() {
-				return forgerouter.TooManyRequests("Rate limit exceeded")
+				return steel.TooManyRequests("Rate limit exceeded")
 			}
 
 			return nil
@@ -362,7 +362,7 @@ func generateRequestID() string {
 	return fmt.Sprintf("req_%d_%d", time.Now().UnixNano(), time.Now().Nanosecond()%1000)
 }
 
-func RequestID(config ...RequestIDConfig) forgerouter.MiddlewareFunc {
+func RequestID(config ...RequestIDConfig) steel.MiddlewareFunc {
 	cfg := RequestIDConfig{
 		HeaderName:    "X-Request-ID",
 		Generator:     generateRequestID,
@@ -393,7 +393,7 @@ func RequestID(config ...RequestIDConfig) forgerouter.MiddlewareFunc {
 }
 
 // Opinionated Request ID middleware
-func OpinionatedRequestID(config ...RequestIDConfig) forgerouter.OpinionatedMiddleware {
+func OpinionatedRequestID(config ...RequestIDConfig) steel.OpinionatedMiddleware {
 	cfg := RequestIDConfig{
 		HeaderName:    "X-Request-ID",
 		Generator:     generateRequestID,
@@ -403,9 +403,9 @@ func OpinionatedRequestID(config ...RequestIDConfig) forgerouter.OpinionatedMidd
 		cfg = config[0]
 	}
 
-	return forgerouter.NewMiddleware("request_id").
+	return steel.NewMiddleware("request_id").
 		Description("Generates and tracks unique request identifiers").
-		Before(func(ctx *forgerouter.MiddlewareContext) error {
+		Before(func(ctx *steel.MiddlewareContext) error {
 			requestID := ctx.Request.Header.Get(cfg.HeaderName)
 
 			if requestID == "" || cfg.ForceGenerate {
@@ -495,7 +495,7 @@ func extractTokenFromRequest(r *http.Request, config JWTConfig) (string, error) 
 	}
 }
 
-func JWT(config JWTConfig) forgerouter.MiddlewareFunc {
+func JWT(config JWTConfig) steel.MiddlewareFunc {
 	if config.SigningKey == nil {
 		panic("JWT middleware requires signing key")
 	}
@@ -559,7 +559,7 @@ func JWT(config JWTConfig) forgerouter.MiddlewareFunc {
 }
 
 // Opinionated JWT middleware
-func OpinionatedJWT(config JWTConfig) forgerouter.OpinionatedMiddleware {
+func OpinionatedJWT(config JWTConfig) steel.OpinionatedMiddleware {
 	if config.SigningKey == nil {
 		panic("JWT middleware requires signing key")
 	}
@@ -573,16 +573,16 @@ func OpinionatedJWT(config JWTConfig) forgerouter.OpinionatedMiddleware {
 		config.AuthScheme = "Bearer"
 	}
 
-	return forgerouter.NewMiddleware("jwt_auth").
+	return steel.NewMiddleware("jwt_auth").
 		Description("JWT token authentication middleware").
-		Before(func(ctx *forgerouter.MiddlewareContext) error {
+		Before(func(ctx *steel.MiddlewareContext) error {
 			if config.SkipFunc != nil && config.SkipFunc(ctx.Request) {
 				return nil
 			}
 
 			tokenString, err := extractTokenFromRequest(ctx.Request, config)
 			if err != nil {
-				return forgerouter.Unauthorized("Missing or invalid authorization token: " + err.Error())
+				return steel.Unauthorized("Missing or invalid authorization token: " + err.Error())
 			}
 
 			token, err := jwt.ParseWithClaims(tokenString, config.Claims, func(token *jwt.Token) (interface{}, error) {
@@ -593,11 +593,11 @@ func OpinionatedJWT(config JWTConfig) forgerouter.OpinionatedMiddleware {
 			})
 
 			if err != nil {
-				return forgerouter.Unauthorized("Invalid token: " + err.Error())
+				return steel.Unauthorized("Invalid token: " + err.Error())
 			}
 
 			if !token.Valid {
-				return forgerouter.Unauthorized("Token is not valid")
+				return steel.Unauthorized("Token is not valid")
 			}
 
 			// Store token in context and middleware context
@@ -615,7 +615,7 @@ func OpinionatedJWT(config JWTConfig) forgerouter.OpinionatedMiddleware {
 			return nil
 		}).
 		RequiresAuth().
-		AddSecurityRequirement(forgerouter.RequireBearer("JWTAuth")).
+		AddSecurityRequirement(steel.RequireBearer("JWTAuth")).
 		AddResponse("401", "Unauthorized - Invalid or missing JWT token").
 		AddHeader("Authorization", "JWT Bearer token", true).
 		Build()
@@ -684,7 +684,7 @@ func shouldCompress(r *http.Request, contentType string, contentLength int, conf
 	return false
 }
 
-func Compression(config ...CompressionConfig) forgerouter.MiddlewareFunc {
+func Compression(config ...CompressionConfig) steel.MiddlewareFunc {
 	cfg := DefaultCompressionConfig()
 	if len(config) > 0 {
 		cfg = config[0]
@@ -759,7 +759,7 @@ func DefaultSecurityConfig() SecurityConfig {
 	}
 }
 
-func SecureHeaders(config ...SecurityConfig) forgerouter.MiddlewareFunc {
+func SecureHeaders(config ...SecurityConfig) steel.MiddlewareFunc {
 	cfg := DefaultSecurityConfig()
 	if len(config) > 0 {
 		cfg = config[0]
@@ -837,7 +837,7 @@ func (r *responseRecorder) Write(b []byte) (int, error) {
 	return size, err
 }
 
-func RequestLogging(config ...LoggingConfig) forgerouter.MiddlewareFunc {
+func RequestLogging(config ...LoggingConfig) steel.MiddlewareFunc {
 	cfg := LoggingConfig{
 		Logger:     log.Default(),
 		Format:     "${time} ${method} ${path} ${status} ${size} ${duration}",
@@ -899,7 +899,7 @@ type BodyLimitConfig struct {
 	SkipFunc func(*http.Request) bool
 }
 
-func BodyLimit(limit int64, config ...BodyLimitConfig) forgerouter.MiddlewareFunc {
+func BodyLimit(limit int64, config ...BodyLimitConfig) steel.MiddlewareFunc {
 	cfg := BodyLimitConfig{
 		Limit: limit,
 	}
@@ -1139,7 +1139,7 @@ func (cb *CircuitBreaker) toNewGeneration(now time.Time) {
 	}
 }
 
-func CircuitBreakerMiddleware(config CircuitBreakerConfig) forgerouter.MiddlewareFunc {
+func CircuitBreakerMiddleware(config CircuitBreakerConfig) steel.MiddlewareFunc {
 	cb := NewCircuitBreaker(config)
 
 	return func(next http.Handler) http.Handler {
@@ -1226,7 +1226,7 @@ func (m *Metrics) GetStats() map[string]interface{} {
 	return stats
 }
 
-func MetricsMiddleware(metrics *Metrics, config ...MetricsConfig) forgerouter.MiddlewareFunc {
+func MetricsMiddleware(metrics *Metrics, config ...MetricsConfig) steel.MiddlewareFunc {
 	cfg := MetricsConfig{}
 	if len(config) > 0 {
 		cfg = config[0]

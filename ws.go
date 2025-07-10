@@ -1,4 +1,4 @@
-package forgerouter
+package steel
 
 import (
 	"fmt"
@@ -12,7 +12,7 @@ import (
 // WSConnection represents a WebSocket connection with additional utilities like parameter handling and metadata storage.
 type WSConnection struct {
 	conn     *websocket.Conn
-	router   *ForgeRouter
+	router   *SteelRouter
 	params   *Params
 	request  *http.Request
 	clientID string

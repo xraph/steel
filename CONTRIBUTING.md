@@ -1,7 +1,7 @@
 # CONTRIBUTING.md
-# Contributing to ForgeRouter
+# Contributing to Steel
 
-Thank you for your interest in contributing to ForgeRouter! This document provides guidelines and information about contributing to the project.
+Thank you for your interest in contributing to Steel! This document provides guidelines and information about contributing to the project.
 
 ## Code of Conduct
 
@@ -50,11 +50,11 @@ Enhancement suggestions are tracked as GitHub issues. When creating an enhanceme
 
   ```bash
   # Clone your fork
-  git clone https://github.com/yourusername/forge-router.git
-  cd forge-router
+  git clone https://github.com/yourusername/steel.git
+  cd steel
   
   # Add upstream remote
-  git remote add upstream https://github.com/xraph/forgerouter.git
+  git remote add upstream https://github.com/xraph/steel.git
   
   # Install dependencies
   go mod download
@@ -122,7 +122,7 @@ docs: update API documentation for new features
 ## Project Structure
 
   ```
-  forge-router/
+  steel/
   ├── cmd/                 # Command-line applications
   ├── internal/           # Private application code
   ├── pkg/               # Public library code
@@ -135,7 +135,7 @@ docs: update API documentation for new features
 
 ## Performance Considerations
 
-ForgeRouter is designed for high performance. When contributing:
+Steel is designed for high performance. When contributing:
 
 - Avoid unnecessary allocations
 - Use object pooling where appropriate
@@ -164,9 +164,9 @@ Releases are automated through GitHub Actions:
 
 ## Getting Help
 
-- Create a [GitHub Discussion](https://github.com/xraph/forgerouter/discussions) for questions
-- Check existing [issues](https://github.com/xraph/forgerouter/issues) and [pull requests](https://github.com/xraph/forgerouter/pulls)
-- Read the [documentation](https://github.com/xraph/forgerouter/wiki)
+- Create a [GitHub Discussion](https://github.com/xraph/steel/discussions) for questions
+- Check existing [issues](https://github.com/xraph/steel/issues) and [pull requests](https://github.com/xraph/steel/pulls)
+- Read the [documentation](https://github.com/xraph/steel/wiki)
 
 ## Recognition
 
@@ -175,4 +175,4 @@ Contributors will be recognized in:
 - GitHub contributors page
 - Release notes for significant contributions
 
-Thank you for contributing to ForgeRouter! 🚀
+Thank you for contributing to Steel! 🚀

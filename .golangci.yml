@@ -127,7 +127,7 @@ linters-settings:
 
   goheader:
     template: |-
-      Copyright {{ YEAR }} ForgeRouter Contributors
+      Copyright {{ YEAR }} XRaph Contributors
       
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
@@ -142,7 +142,7 @@ linters-settings:
       limitations under the License.
 
   goimports:
-    local-prefixes: github.com/xraph/forgerouter
+    local-prefixes: github.com/xraph/steel
 
   gomnd:
     checks:
@@ -268,7 +268,7 @@ ARG GIT_COMMIT
 RUN CGO_ENABLED=0 GOOS=linux go build \
 -ldflags="-s -w -X main.version=${VERSION} -X main.buildTime=${BUILD_TIME} -X main.gitCommit=${GIT_COMMIT}" \
 -a -installsuffix cgo \
--o forge-router \
+-o steel \
 ./cmd/...
   
   # Final stage
@@ -282,7 +282,7 @@ COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 COPY --from=builder /etc/passwd /etc/passwd
   
   # Copy binary from builder
-COPY --from=builder /app/forge-router /forge-router
+COPY --from=builder /app/steel /steel
   
   # Use non-root user
 USER appuser
@@ -292,10 +292,10 @@ EXPOSE 8080
   
   # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-CMD ["/forge-router", "health"]
+CMD ["/steel", "health"]
   
   # Run the binary
-ENTRYPOINT ["/forge-router"]
+ENTRYPOINT ["/steel"]
 
 ---
 # .github/release.yml
@@ -380,7 +380,7 @@ changelog:
 
   [default.extend-words]
   # Add any project-specific words that shouldn't be flagged as typos
-  ForgeRouter = "ForgeRouter"
+  Steel = "Steel"
   gorilla = "gorilla"
   middlewares = "middlewares"
   

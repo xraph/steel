@@ -1,4 +1,4 @@
-package forgerouter
+package steel
 
 import (
 	"fmt"
@@ -316,48 +316,48 @@ func NoContent() *APIResponse {
 	return NewResponse(http.StatusNoContent, nil)
 }
 
-// Enhanced ForgeContext with error helpers
-func (c *ForgeContext) BadRequest(message string, details ...interface{}) error {
+// Enhanced Context with error helpers
+func (c *Context) BadRequest(message string, details ...interface{}) error {
 	return BadRequest(message, details...)
 }
 
-func (c *ForgeContext) Unauthorized(message string, details ...interface{}) error {
+func (c *Context) Unauthorized(message string, details ...interface{}) error {
 	return Unauthorized(message, details...)
 }
 
-func (c *ForgeContext) Forbidden(message string, details ...interface{}) error {
+func (c *Context) Forbidden(message string, details ...interface{}) error {
 	return Forbidden(message, details...)
 }
 
-func (c *ForgeContext) NotFound(resource string, details ...interface{}) error {
+func (c *Context) NotFound(resource string, details ...interface{}) error {
 	return NotFound(resource, details...)
 }
 
-func (c *ForgeContext) Conflict(message string, details ...interface{}) error {
+func (c *Context) Conflict(message string, details ...interface{}) error {
 	return Conflict(message, details...)
 }
 
-func (c *ForgeContext) ValidationError(message string, fields ...FieldError) error {
+func (c *Context) ValidationError(message string, fields ...FieldError) error {
 	return UnprocessableEntity(message, fields...)
 }
 
-func (c *ForgeContext) InternalError(message string, details ...interface{}) error {
+func (c *Context) InternalError(message string, details ...interface{}) error {
 	return InternalServerError(message, details...)
 }
 
 // OK Success response helpers for context
-func (c *ForgeContext) OK(data interface{}) (*APIResponse, error) {
+func (c *Context) OK(data interface{}) (*APIResponse, error) {
 	return OK(data), nil
 }
 
-func (c *ForgeContext) Created(data interface{}) (*APIResponse, error) {
+func (c *Context) Created(data interface{}) (*APIResponse, error) {
 	return Created(data), nil
 }
 
-func (c *ForgeContext) Accepted(data interface{}) (*APIResponse, error) {
+func (c *Context) Accepted(data interface{}) (*APIResponse, error) {
 	return Accepted(data), nil
 }
 
-func (c *ForgeContext) NoContent() (*APIResponse, error) {
+func (c *Context) NoContent() (*APIResponse, error) {
 	return NoContent(), nil
 }

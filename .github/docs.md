@@ -1,6 +1,6 @@
-# ForgeRouter CI/CD Setup Guide
+# Steel CI/CD Setup Guide
 
-This guide provides a complete CI/CD setup with automatic semantic versioning for the ForgeRouter project.
+This guide provides a complete CI/CD setup with automatic semantic versioning for the Steel project.
 
 ## 🚀 Features
 
@@ -52,7 +52,7 @@ This guide provides a complete CI/CD setup with automatic semantic versioning fo
 
 set -e
 
-echo "🚀 Setting up ForgeRouter CI/CD..."
+echo "🚀 Setting up Steel CI/CD..."
 
 # Colors for output
 RED='\033[0;31m'
@@ -106,7 +106,7 @@ mkdir -p scripts
 # Create basic Go project structure if not exists
 if [ ! -f "go.mod" ]; then
     print_status "Initializing Go module..."
-    read -p "Enter module name (e.g., github.com/yourorg/forge-router): " MODULE_NAME
+    read -p "Enter module name (e.g., github.com/xraph/steel): " MODULE_NAME
     go mod init "$MODULE_NAME"
 fi
 
@@ -129,7 +129,7 @@ var (
 
 func main() {
     if len(os.Args) > 1 && os.Args[1] == "version" {
-        fmt.Printf("ForgeRouter %s\n", version)
+        fmt.Printf("Steel %s\n", version)
         fmt.Printf("Build time: %s\n", buildTime)
         fmt.Printf("Git commit: %s\n", gitCommit)
         return
@@ -141,7 +141,7 @@ func main() {
         return
     }
     
-    fmt.Println("ForgeRouter - High Performance HTTP Router")
+    fmt.Println("Steel - High Performance HTTP Router")
     fmt.Println("Use 'version' to see version info")
 }
 EOF
@@ -250,7 +250,7 @@ fi
 if [ -z "$(git log --oneline 2>/dev/null)" ]; then
     print_status "Creating initial commit..."
     git add .
-    git commit -m "feat: initial ForgeRouter setup with CI/CD
+    git commit -m "feat: initial Steel setup with CI/CD
 
 - Add automated CI/CD workflows
 - Add security scanning and quality gates
@@ -269,7 +269,7 @@ print_success "CI/CD setup completed!"
 
 echo ""
 echo "📋 Next Steps:"
-echo "1. Update the module name in workflow files (replace 'github.com/yourorg/forge-router')"
+echo "1. Update the module name in workflow files (replace 'github.com/yourorg/steel')"
 echo "2. Update GitHub username in dependabot.yml and workflow files"
 echo "3. Add any required secrets to GitHub repository settings:"
 echo "   - SLACK_WEBHOOK_URL (optional, for release notifications)"
@@ -422,13 +422,13 @@ The included Dockerfile provides:
 
 ```bash
 # Build image
-docker build -t forge-router:latest .
+docker build -t steel:latest .
 
 # Run container
-docker run -p 8080:8080 forge-router:latest
+docker run -p 8080:8080 steel:latest
 
 # Health check
-docker run forge-router:latest health
+docker run steel:latest health
 ```
 
 ## 📊 Monitoring and Observability
@@ -513,4 +513,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed contribution guidelines.
 
 ## 📄 License
 
-This CI/CD setup is provided under the same license as ForgeRouter.
+This CI/CD setup is provided under the same license as Steel.

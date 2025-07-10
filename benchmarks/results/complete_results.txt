@@ -2,9 +2,9 @@ goos: darwin
 goarch: arm64
 pkg: router-benchmarks
 cpu: Apple M3 Max
-BenchmarkQuickComparison/ForgeRouter-16         	 5855648	       201.7 ns/op	     386 B/op	       4 allocs/op
-BenchmarkQuickComparison/ForgeRouter-16         	 5990889	       201.7 ns/op	     386 B/op	       4 allocs/op
-BenchmarkQuickComparison/ForgeRouter-16         	 5844555	       203.6 ns/op	     386 B/op	       4 allocs/op
+BenchmarkQuickComparison/Steel-16         	 5855648	       201.7 ns/op	     386 B/op	       4 allocs/op
+BenchmarkQuickComparison/Steel-16         	 5990889	       201.7 ns/op	     386 B/op	       4 allocs/op
+BenchmarkQuickComparison/Steel-16         	 5844555	       203.6 ns/op	     386 B/op	       4 allocs/op
 BenchmarkQuickComparison/Chi-16                	 5826418	       202.2 ns/op	     370 B/op	       3 allocs/op
 BenchmarkQuickComparison/Chi-16                	 5930581	       204.1 ns/op	     370 B/op	       3 allocs/op
 BenchmarkQuickComparison/Chi-16                	 5877180	       202.6 ns/op	     370 B/op	       3 allocs/op
