@@ -1,6 +1,6 @@
 # Pure Middleware
 
-Middleware in ForgeRouter provides a powerful way to add cross-cutting functionality to your application. From authentication and logging to rate limiting and CORS, middleware helps keep your handlers clean and focused.
+Middleware in SteelRouter provides a powerful way to add cross-cutting functionality to your application. From authentication and logging to rate limiting and CORS, middleware helps keep your handlers clean and focused.
 
 ## Middleware Basics
 
@@ -33,7 +33,7 @@ r.Use(loggingMiddleware)
 
 ## Built-in Middleware
 
-ForgeRouter includes several built-in middleware functions:
+SteelRouter includes several built-in middleware functions:
 
 ### Logger
 
@@ -548,7 +548,7 @@ func GetUserIDFromContext(ctx context.Context) (int, bool) {
 
 ## Third-Party Middleware Integration
 
-ForgeRouter works with any middleware that follows the standard `func(http.Handler) http.Handler` pattern:
+SteelRouter works with any middleware that follows the standard `func(http.Handler) http.Handler` pattern:
 
 ### Gorilla Handlers
 
@@ -677,4 +677,4 @@ func TestAuthMiddleware(t *testing.T) {
 }
 ```
 
-Middleware in ForgeRouter provides a clean, composable way to add functionality to your applications while keeping your code organized and testable.
+Middleware in SteelRouter provides a clean, composable way to add functionality to your applications while keeping your code organized and testable.

@@ -1,24 +1,24 @@
 # API Reference
 
-Complete API reference for ForgeRouter types, functions, and methods.
+Complete API reference for SteelRouter types, functions, and methods.
 
 ## Core Types
 
-### FastRouter
+### SteelRouter
 
 The main router type that implements HTTP routing and middleware support.
 
 ```go
-type FastRouter struct {
+type SteelRouter struct {
     // Private fields
 }
 ```
 
 #### Constructor
 
-##### NewRouter() *FastRouter
+##### NewRouter() *SteelRouter
 
-Creates a new FastRouter instance with default configuration.
+Creates a new SteelRouter instance with default configuration.
 
 ```go
 r := router.NewRouter()
@@ -110,7 +110,7 @@ r.HandleFunc("GET", "/health", func(w http.ResponseWriter, r *http.Request) {
 Registers a type-safe GET handler with automatic OpenAPI generation.
 
 ```go
-r.OpinionatedGET("/users/:id", func(ctx *router.FastContext, req GetUserRequest) (*User, error) {
+r.OpinionatedGET("/users/:id", func(ctx *router.Context, req GetUserRequest) (*User, error) {
     // Handler implementation
 }, router.WithSummary("Get User"), router.WithTags("users"))
 ```
@@ -275,12 +275,12 @@ Prints the internal route tree structure for debugging.
 r.DebugRoutes()
 ```
 
-### FastContext
+### Context
 
 Enhanced context for opinionated handlers with utility methods.
 
 ```go
-type FastContext struct {
+type Context struct {
     Request  *http.Request
     Response http.ResponseWriter
     // Private fields
@@ -334,7 +334,7 @@ Sends a JSON response.
 ctx.JSON(http.StatusOK, user)
 ```
 
-##### Status(status int) *FastContext
+##### Status(status int) *Context
 
 Sets the response status code.
 
@@ -943,7 +943,7 @@ Creates a mock handler for testing.
 handler := router.MockHandler(http.StatusOK, "Hello World")
 ```
 
-### RunLoadTest(router *FastRouter, config LoadTestConfig) LoadTestResult
+### RunLoadTest(router *SteelRouter, config LoadTestConfig) LoadTestResult
 
 Runs a load test against the router.
 
@@ -1006,4 +1006,4 @@ type AsyncHandlerOption interface {
 }
 ```
 
-This API reference covers the main public interface of ForgeRouter. For implementation details and internal types, refer to the source code documentation.
+This API reference covers the main public interface of SteelRouter. For implementation details and internal types, refer to the source code documentation.

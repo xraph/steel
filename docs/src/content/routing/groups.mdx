@@ -1,12 +1,12 @@
 # Group Routes
 
-Route groups in ForgeRouter provide a powerful way to organize related routes and apply middleware to multiple routes at once. Groups support nested hierarchies, middleware inheritance, and clean URL patterns.
+Route groups in Steel provide a powerful way to organize related routes and apply middleware to multiple routes at once. Groups support nested hierarchies, middleware inheritance, and clean URL patterns.
 
 ## Basic Route Groups
 
 ### Creating Groups
 
-ForgeRouter provides two methods for creating route groups:
+Steel provides two methods for creating route groups:
 
 ```go
 // Method 1: Create a group and use it
@@ -148,10 +148,10 @@ router.Route("/api", func(api router.Router) {
 ### RESTful API Structure
 
 ```go
-func setupAPI(router *forgerouter.FastRouter) {
+func setupAPI(router *steel.SteelRouter) {
     // Global middleware
-    router.Use(forgerouter.Logger)
-    router.Use(forgerouter.Recoverer)
+    router.Use(steel.Logger)
+    router.Use(steel.Recoverer)
     router.Use(corsMiddleware())
 
     // API v1
@@ -231,9 +231,9 @@ func setupAPI(router *forgerouter.FastRouter) {
 ### Multi-Tenant Application
 
 ```go
-func setupMultiTenantAPI(router *forgerouter.FastRouter) {
-    router.Use(forgerouter.Logger)
-    router.Use(forgerouter.Recoverer)
+func setupMultiTenantAPI(router *steel.SteelRouter) {
+    router.Use(steel.Logger)
+    router.Use(steel.Recoverer)
 
     // Tenant-specific routes
     router.Route("/tenant/:tenantId", func(tenant router.Router) {
@@ -289,9 +289,9 @@ func setupMultiTenantAPI(router *forgerouter.FastRouter) {
 ### Microservice Gateway Pattern
 
 ```go
-func setupGateway(router *forgerouter.FastRouter) {
-    router.Use(forgerouter.Logger)
-    router.Use(forgerouter.Recoverer)
+func setupGateway(router *steel.SteelRouter) {
+    router.Use(steel.Logger)
+    router.Use(steel.Recoverer)
     router.Use(corsMiddleware())
 
     // Service routing with middleware
@@ -343,20 +343,20 @@ Groups work seamlessly with opinionated handlers and contribute to OpenAPI docum
 router.Route("/api/v1", func(api router.Router) {
     api.Route("/users", func(users router.Router) {
         // OpenAPI documentation is automatically grouped
-        users.OpinionatedGET("/", func(ctx *forgerouter.FastContext, req ListUsersRequest) (*ListUsersResponse, error) {
+        users.OpinionatedGET("/", func(ctx *steel.Context, req ListUsersRequest) (*ListUsersResponse, error) {
             // Implementation
             return &ListUsersResponse{}, nil
-        }, forgerouter.WithSummary("List Users"), forgerouter.WithTags("users"))
+        }, steel.WithSummary("List Users"), steel.WithTags("users"))
 
-        users.OpinionatedPOST("/", func(ctx *forgerouter.FastContext, req CreateUserRequest) (*CreateUserResponse, error) {
+        users.OpinionatedPOST("/", func(ctx *steel.Context, req CreateUserRequest) (*CreateUserResponse, error) {
             // Implementation
             return &CreateUserResponse{}, nil
-        }, forgerouter.WithSummary("Create User"), forgerouter.WithTags("users"))
+        }, steel.WithSummary("Create User"), steel.WithTags("users"))
 
-        users.OpinionatedGET("/:id", func(ctx *forgerouter.FastContext, req GetUserRequest) (*GetUserResponse, error) {
+        users.OpinionatedGET("/:id", func(ctx *steel.Context, req GetUserRequest) (*GetUserResponse, error) {
             // Implementation
             return &GetUserResponse{}, nil
-        }, forgerouter.WithSummary("Get User"), forgerouter.WithTags("users"))
+        }, steel.WithSummary("Get User"), steel.WithTags("users"))
     })
 })
 ```
@@ -386,7 +386,7 @@ Test route groups by creating isolated test routers:
 
 ```go
 func TestUserRoutes(t *testing.T) {
-    router := forgerouter.NewRouter()
+    router := steel.NewRouter()
 
     // Set up the user routes group
     router.Route("/api/v1/users", func(users router.Router) {
@@ -452,4 +452,4 @@ router.Route("/api", func(api router.Router) {
 })
 ```
 
-Route groups in ForgeRouter provide a clean, hierarchical way to organize your API while maintaining middleware inheritance and generating comprehensive OpenAPI documentation.
+Route groups in Steel provide a clean, hierarchical way to organize your API while maintaining middleware inheritance and generating comprehensive OpenAPI documentation.

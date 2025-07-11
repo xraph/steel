@@ -1,6 +1,6 @@
 # Server-Sent Events (SSE)
 
-ForgeRouter provides built-in support for Server-Sent Events (SSE) with automatic AsyncAPI documentation generation. SSE provides one-way real-time communication from server to client, ideal for live feeds, notifications, and streaming updates.
+Steel provides built-in support for Server-Sent Events (SSE) with automatic AsyncAPI documentation generation. SSE provides one-way real-time communication from server to client, ideal for live feeds, notifications, and streaming updates.
 
 ## Basic SSE Handler
 
@@ -590,4 +590,4 @@ r.SSE("/sse/events", func(conn *router.SSEConnection, params struct {
 })
 ```
 
-Server-Sent Events in ForgeRouter provide an efficient way to stream real-time data to clients while maintaining excellent performance and comprehensive documentation through AsyncAPI generation.
+Server-Sent Events in Steel provide an efficient way to stream real-time data to clients while maintaining excellent performance and comprehensive documentation through AsyncAPI generation.

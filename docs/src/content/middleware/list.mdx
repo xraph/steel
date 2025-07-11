@@ -1,6 +1,6 @@
 # Available Middleware
 
-ForgeRouter provides a comprehensive set of built-in middleware for common web application needs. Each middleware is available in both standard and opinionated versions, with the opinionated versions contributing to OpenAPI documentation.
+Steel provides a comprehensive set of built-in middleware for common web application needs. Each middleware is available in both standard and opinionated versions, with the opinionated versions contributing to OpenAPI documentation.
 
 ## Core Middleware
 
@@ -9,14 +9,14 @@ ForgeRouter provides a comprehensive set of built-in middleware for common web a
 Logs HTTP requests with method, path, and duration.
 
 ```go
-import "github.com/xraph/forgerouter"
+import "github.com/xraph/steel"
 
 // Standard version
-router.Use(forgerouter.Logger)
+router.Use(steel.Logger)
 
 // Usage example
-router := forgerouter.NewRouter()
-router.Use(forgerouter.Logger)
+router := steel.NewRouter()
+router.Use(steel.Logger)
 
 router.GET("/users", getUsersHandler)
 
@@ -29,11 +29,11 @@ Recovers from panics and returns a 500 Internal Server Error response.
 
 ```go
 // Standard version
-router.Use(forgerouter.Recoverer)
+router.Use(steel.Recoverer)
 
 // Usage example
-router := forgerouter.NewRouter()
-router.Use(forgerouter.Recoverer)
+router := steel.NewRouter()
+router.Use(steel.Recoverer)
 
 router.GET("/panic", func(w http.ResponseWriter, r *http.Request) {
     panic("Something went wrong!")
@@ -47,11 +47,11 @@ Sets a timeout for request processing.
 
 ```go
 // Standard version with 30-second timeout
-router.Use(forgerouter.Timeout(30 * time.Second))
+router.Use(steel.Timeout(30 * time.Second))
 
 // Usage example
-router := forgerouter.NewRouter()
-router.Use(forgerouter.Timeout(5 * time.Second))
+router := steel.NewRouter()
+router.Use(steel.Timeout(5 * time.Second))
 
 router.GET("/slow", func(w http.ResponseWriter, r *http.Request) {
     select {
@@ -71,7 +71,7 @@ router.GET("/slow", func(w http.ResponseWriter, r *http.Request) {
 Handles cross-origin requests with configurable policies.
 
 ```go
-import "github.com/xraph/forgerouter/middleware"
+import "github.com/xraph/steel/middleware"
 
 // Default CORS configuration
 router.Use(middleware.CORS())
@@ -159,7 +159,7 @@ router.Use(middleware.JWT(jwtConfig))
 router.UseOpinionated(middleware.OpinionatedJWT(jwtConfig))
 
 // Register JWT security scheme for OpenAPI
-router.RegisterSecurityScheme("JWTAuth", forgerouter.BearerAuth(
+router.RegisterSecurityScheme("JWTAuth", steel.BearerAuth(
     "JWT Bearer token authentication",
     "JWT",
 ))
@@ -384,11 +384,11 @@ router.Use(middleware.RequestLogging(loggingConfig))
 ### Development Stack
 
 ```go
-func setupDevelopmentMiddleware(router *forgerouter.FastRouter) {
+func setupDevelopmentMiddleware(router *steel.SteelRouter) {
     // Development-friendly middleware stack
     router.Use(middleware.RequestID())
-    router.Use(forgerouter.Logger)
-    router.Use(forgerouter.Recoverer)
+    router.Use(steel.Logger)
+    router.Use(steel.Recoverer)
 
     // Permissive CORS for development
     router.Use(middleware.CORS(middleware.CORSConfig{
@@ -406,11 +406,11 @@ func setupDevelopmentMiddleware(router *forgerouter.FastRouter) {
 ### Production Stack
 
 ```go
-func setupProductionMiddleware(router *forgerouter.FastRouter, config Config) {
+func setupProductionMiddleware(router *steel.SteelRouter, config Config) {
     // Production middleware stack
     router.Use(middleware.RequestID())
-    router.Use(forgerouter.Logger)
-    router.Use(forgerouter.Recoverer)
+    router.Use(steel.Logger)
+    router.Use(steel.Recoverer)
 
     // Security middleware
     router.Use(middleware.SecureHeaders(middleware.SecurityConfig{
@@ -449,7 +449,7 @@ func setupProductionMiddleware(router *forgerouter.FastRouter, config Config) {
 ### API Gateway Stack
 
 ```go
-func setupGatewayMiddleware(router *forgerouter.FastRouter) {
+func setupGatewayMiddleware(router *steel.SteelRouter) {
     // Metrics collection
     metrics := middleware.NewMetrics()
     router.Use(middleware.MetricsMiddleware(metrics))
@@ -490,7 +490,7 @@ func setupGatewayMiddleware(router *forgerouter.FastRouter) {
 
     // Performance
     router.Use(middleware.Compression())
-    router.Use(forgerouter.Timeout(30 * time.Second))
+    router.Use(steel.Timeout(30 * time.Second))
 
     // Resilience
     router.Use(middleware.CircuitBreakerMiddleware(middleware.CircuitBreakerConfig{
@@ -500,7 +500,7 @@ func setupGatewayMiddleware(router *forgerouter.FastRouter) {
     }))
 
     // Recovery
-    router.Use(forgerouter.Recoverer)
+    router.Use(steel.Recoverer)
 }
 ```
 
@@ -508,10 +508,10 @@ func setupGatewayMiddleware(router *forgerouter.FastRouter) {
 
 ### Context Helpers
 
-ForgeRouter provides helper functions to extract common values from request context:
+Steel provides helper functions to extract common values from request context:
 
 ```go
-import "github.com/xraph/forgerouter/middleware"
+import "github.com/xraph/steel/middleware"
 
 func myHandler(w http.ResponseWriter, r *http.Request) {
     // Get request ID
@@ -623,7 +623,7 @@ router.Use(middleware.JWT(jwtConfig))                  // Authentication
 router.Use(middleware.RequestID())                     // Add request ID
 router.Use(middleware.Compression())                   // Response modification
 router.Use(middleware.RequestLogging(logConfig))       // Always logs
-router.Use(forgerouter.Recoverer)                     // Always wraps handler
+router.Use(steel.Recoverer)                     // Always wraps handler
 ```
 
-ForgeRouter's middleware ecosystem provides everything you need to build secure, performant, and well-documented APIs while maintaining flexibility for custom requirements.
+Steel's middleware ecosystem provides everything you need to build secure, performant, and well-documented APIs while maintaining flexibility for custom requirements.

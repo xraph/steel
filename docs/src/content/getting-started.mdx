@@ -1,6 +1,6 @@
 # Getting Started
 
-Get up and running with ForgeRouter in minutes. This guide will walk you through installation, basic setup, and your first API endpoints.
+Get up and running with Steel in minutes. This guide will walk you through installation, basic setup, and your first API endpoints.
 
 ## Installation
 
@@ -10,7 +10,7 @@ import { Steps } from 'nextra/components'
 
     ### Install Go
 
-    ForgeRouter requires Go 1.24 or higher. Check your Go version:
+    Steel requires Go 1.24 or higher. Check your Go version:
 
     ```bash
     go version
@@ -18,13 +18,13 @@ import { Steps } from 'nextra/components'
 
     If you need to install or upgrade Go, visit [golang.org](https://golang.org/dl/).
 
-    ### Install ForgeRouter
+    ### Install Steel
 
-    Add ForgeRouter to your project:
+    Add Steel to your project:
 
     ```bash
     go mod init your-project-name
-    go get github.com/xraph/forgerouter
+    go get github.com/xraph/steel
     ```
 
     ### Create Your First Server
@@ -37,7 +37,7 @@ import { Steps } from 'nextra/components'
     import (
     "log"
     "net/http"
-    router "github.com/xraph/forgerouter"
+    router "github.com/xraph/steel"
     )
 
     func main() {
@@ -45,7 +45,7 @@ import { Steps } from 'nextra/components'
 
     // Simple handler
     r.GET("/", func(w http.ResponseWriter, req *http.Request) {
-    w.Write([]byte("Hello, ForgeRouter!"))
+    w.Write([]byte("Hello, Steel!"))
 })
 
     log.Println("Server starting on :8080")
@@ -74,7 +74,7 @@ import (
     "fmt"
     "log"
     "net/http"
-    router "github.com/xraph/forgerouter"
+    router "github.com/xraph/steel"
 )
 
 // Request/Response types
@@ -117,7 +117,7 @@ func main() {
     // API routes
     r.Route("/api/v1", func(api router.Router) {
         // Get all users
-        api.OpinionatedGET("/users", func(ctx *router.FastContext, req struct{}) (*UserListResponse, error) {
+        api.OpinionatedGET("/users", func(ctx *router.Context, req struct{}) (*UserListResponse, error) {
             return &UserListResponse{
                 Users: users,
                 Total: len(users),
@@ -125,7 +125,7 @@ func main() {
         }, router.WithSummary("List Users"), router.WithDescription("Get all users"), router.WithTags("users"))
 
         // Get user by ID
-        api.OpinionatedGET("/users/:id", func(ctx *router.FastContext, req GetUserRequest) (*User, error) {
+        api.OpinionatedGET("/users/:id", func(ctx *router.Context, req GetUserRequest) (*User, error) {
             for _, user := range users {
                 if user.ID == req.ID {
                     return &user, nil
@@ -135,7 +135,7 @@ func main() {
         }, router.WithSummary("Get User"), router.WithDescription("Get user by ID"), router.WithTags("users"))
 
         // Create new user
-        api.OpinionatedPOST("/users", func(ctx *router.FastContext, req CreateUserRequest) (*User, error) {
+        api.OpinionatedPOST("/users", func(ctx *router.Context, req CreateUserRequest) (*User, error) {
             // Validation
             if req.Name == "" {
                 return nil, router.BadRequest("Name is required")
@@ -205,7 +205,7 @@ Visit `http://localhost:8080/openapi/docs` to see your automatically generated A
 import { Callout } from 'nextra/components'
 
 <Callout type="info">
-    **Automatic Documentation**: Notice how ForgeRouter automatically generated complete OpenAPI documentation from your Go structs and handler signatures. No manual YAML or annotations required!
+    **Automatic Documentation**: Notice how Steel automatically generated complete OpenAPI documentation from your Go structs and handler signatures. No manual YAML or annotations required!
 </Callout>
 
 ## Understanding the Code
@@ -215,7 +215,7 @@ Let's break down what makes this example special:
 ### 1. Opinionated Handlers
 
 ```go
-api.OpinionatedGET("/users/:id", func(ctx *router.FastContext, req GetUserRequest) (*User, error) {
+api.OpinionatedGET("/users/:id", func(ctx *router.Context, req GetUserRequest) (*User, error) {
     // Handler logic
 })
 ```
@@ -239,7 +239,7 @@ type CreateUserRequest struct {
 }
 ```
 
-Tags tell ForgeRouter where to find parameters:
+Tags tell Steel where to find parameters:
 - `path:"id"` - Extract from URL path
 - `query:"limit"` - Extract from query parameters
 - `header:"Authorization"` - Extract from HTTP headers
@@ -256,7 +256,7 @@ if req.Name == "" {
 return nil, router.NotFound("User")
 ```
 
-ForgeRouter provides semantic error constructors that:
+Steel provides semantic error constructors that:
 - Set appropriate HTTP status codes
 - Generate structured error responses
 - Include error details in OpenAPI documentation
@@ -329,5 +329,5 @@ import { Cards } from 'nextra/components'
 </Cards>
 
 <Callout type="success">
-    **Congratulations!** You've built your first ForgeRouter API with automatic documentation. Your API is production-ready with proper error handling, validation, and documentation.
+    **Congratulations!** You've built your first Steel API with automatic documentation. Your API is production-ready with proper error handling, validation, and documentation.
 </Callout>

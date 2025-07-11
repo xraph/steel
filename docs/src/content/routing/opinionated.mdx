@@ -1,13 +1,13 @@
 # Opinionated Handlers
 
-Opinionated handlers are ForgeRouter's flagship feature, providing automatic parameter binding, validation, and OpenAPI documentation generation. They eliminate boilerplate code while ensuring type safety and comprehensive API documentation.
+Opinionated handlers are Steel's flagship feature, providing automatic parameter binding, validation, and OpenAPI documentation generation. They eliminate boilerplate code while ensuring type safety and comprehensive API documentation.
 
 ## Handler Signature
 
 Every opinionated handler follows this signature:
 
 ```go
-func(ctx *router.FastContext, request RequestType) (*ResponseType, error)
+func(ctx *router.Context, request RequestType) (*ResponseType, error)
 ```
 
 - `ctx` - Provides access to the HTTP request/response and router utilities
@@ -17,7 +17,7 @@ func(ctx *router.FastContext, request RequestType) (*ResponseType, error)
 
 ## Parameter Binding
 
-ForgeRouter automatically binds request data to your struct fields using tags:
+Steel automatically binds request data to your struct fields using tags:
 
 ### Available Tags
 
@@ -56,7 +56,7 @@ type UpdateUserResponse struct {
     Updated  time.Time `json:"updated" description:"Last update timestamp"`
 }
 
-r.OpinionatedPUT("/users/:id", func(ctx *router.FastContext, req UpdateUserRequest) (*UpdateUserResponse, error) {
+r.OpinionatedPUT("/users/:id", func(ctx *router.Context, req UpdateUserRequest) (*UpdateUserResponse, error) {
     // All parameters are automatically bound and available
 
     user, err := database.UpdateUser(req.ID, req.Name, req.Email, req.Age)
@@ -79,7 +79,7 @@ r.OpinionatedPUT("/users/:id", func(ctx *router.FastContext, req UpdateUserReque
 
 ## Type Conversion
 
-ForgeRouter automatically converts string parameters to appropriate Go types:
+Steel automatically converts string parameters to appropriate Go types:
 
 ```go
 type SearchRequest struct {
@@ -117,7 +117,7 @@ type CreateUserRequest struct {
     Age   int    `json:"age" description:"User age"`
 }
 
-r.OpinionatedPOST("/users", func(ctx *router.FastContext, req CreateUserRequest) (*User, error) {
+r.OpinionatedPOST("/users", func(ctx *router.Context, req CreateUserRequest) (*User, error) {
     // Entire JSON body is bound to req
     return createUser(req.Name, req.Email, req.Age)
 })
@@ -180,7 +180,7 @@ type UserResponse struct {
     Created  time.Time `json:"created" description:"Creation timestamp"`
 }
 
-r.OpinionatedGET("/users/:id", func(ctx *router.FastContext, req GetUserRequest) (*UserResponse, error) {
+r.OpinionatedGET("/users/:id", func(ctx *router.Context, req GetUserRequest) (*UserResponse, error) {
     user := getUserFromDB(req.ID)
     return &UserResponse{
         ID:      user.ID,
@@ -195,7 +195,7 @@ r.OpinionatedGET("/users/:id", func(ctx *router.FastContext, req GetUserRequest)
 Use `APIResponse` for custom status codes and headers:
 
 ```go
-r.OpinionatedPOST("/users", func(ctx *router.FastContext, req CreateUserRequest) (*router.APIResponse, error) {
+r.OpinionatedPOST("/users", func(ctx *router.Context, req CreateUserRequest) (*router.APIResponse, error) {
     user := createUser(req)
 
     return router.Created(user).
@@ -221,7 +221,7 @@ type UserListResponse struct {
     Page   int    `json:"page" description:"Current page"`
 }
 
-r.OpinionatedGET("/users", func(ctx *router.FastContext, req ListUsersRequest) (*UserListResponse, error) {
+r.OpinionatedGET("/users", func(ctx *router.Context, req ListUsersRequest) (*UserListResponse, error) {
     users, total := getUsersFromDB(req.Page, req.Limit)
 
     return &UserListResponse{
@@ -236,10 +236,10 @@ r.OpinionatedGET("/users", func(ctx *router.FastContext, req ListUsersRequest) (
 
 ### Built-in Error Types
 
-ForgeRouter provides semantic error constructors:
+Steel provides semantic error constructors:
 
 ```go
-r.OpinionatedGET("/users/:id", func(ctx *router.FastContext, req GetUserRequest) (*User, error) {
+r.OpinionatedGET("/users/:id", func(ctx *router.Context, req GetUserRequest) (*User, error) {
     if req.ID <= 0 {
         return nil, router.BadRequest("Invalid user ID")
     }
@@ -302,7 +302,7 @@ func validateUser(req CreateUserRequest) error {
     return nil
 }
 
-r.OpinionatedPOST("/users", func(ctx *router.FastContext, req CreateUserRequest) (*User, error) {
+r.OpinionatedPOST("/users", func(ctx *router.Context, req CreateUserRequest) (*User, error) {
     if err := validateUser(req); err != nil {
         return nil, err
     }
@@ -316,7 +316,7 @@ r.OpinionatedPOST("/users", func(ctx *router.FastContext, req CreateUserRequest)
 Create domain-specific errors:
 
 ```go
-r.OpinionatedPOST("/orders", func(ctx *router.FastContext, req CreateOrderRequest) (*Order, error) {
+r.OpinionatedPOST("/orders", func(ctx *router.Context, req CreateOrderRequest) (*Order, error) {
     if !hasInventory(req.ProductID, req.Quantity) {
         return nil, router.NewBusinessError(
             http.StatusConflict,
@@ -445,10 +445,10 @@ func validateCreateUserRequest(req CreateUserRequest) error {
 
 ### 3. Context Usage
 
-Leverage the FastContext for common operations:
+Leverage the Context for common operations:
 
 ```go
-r.OpinionatedGET("/users/:id", func(ctx *router.FastContext, req GetUserRequest) (*UserResponse, error) {
+r.OpinionatedGET("/users/:id", func(ctx *router.Context, req GetUserRequest) (*UserResponse, error) {
     // Access raw HTTP request/response if needed
     userAgent := ctx.Header("User-Agent")
     clientIP := ctx.Request.RemoteAddr
@@ -486,7 +486,7 @@ type CreateUserRequest struct {
     Age   int    `json:"age" validate:"min=18,max=120" description:"User age"`
 }
 
-r.OpinionatedPOST("/users", func(ctx *router.FastContext, req CreateUserRequest) (*User, error) {
+r.OpinionatedPOST("/users", func(ctx *router.Context, req CreateUserRequest) (*User, error) {
     // Validate with go-playground/validator
     if err := validate.Struct(req); err != nil {
         var fields []router.FieldError
@@ -505,4 +505,4 @@ r.OpinionatedPOST("/users", func(ctx *router.FastContext, req CreateUserRequest)
 })
 ```
 
-Opinionated handlers make building APIs faster, safer, and more maintainable while automatically generating comprehensive documentation. They're the foundation of ForgeRouter's developer experience.
+Opinionated handlers make building APIs faster, safer, and more maintainable while automatically generating comprehensive documentation. They're the foundation of Steel's developer experience.

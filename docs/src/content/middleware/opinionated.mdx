@@ -1,10 +1,10 @@
 # Opinionated Middleware
 
-Opinionated middleware in ForgeRouter provides enhanced functionality beyond standard HTTP middleware. It integrates with OpenAPI documentation, provides rich context information, and supports advanced patterns like dependency validation and automatic security requirements.
+Opinionated middleware in Steel provides enhanced functionality beyond standard HTTP middleware. It integrates with OpenAPI documentation, provides rich context information, and supports advanced patterns like dependency validation and automatic security requirements.
 
 ## Understanding Opinionated Middleware
 
-While standard middleware operates on `http.Handler` functions, opinionated middleware works with ForgeRouter's enhanced context and automatically contributes to OpenAPI documentation.
+While standard middleware operates on `http.Handler` functions, opinionated middleware works with Steel's enhanced context and automatically contributes to OpenAPI documentation.
 
 ### Key Features
 
@@ -19,18 +19,18 @@ While standard middleware operates on `http.Handler` functions, opinionated midd
 ### Creating Middleware with the Builder
 
 ```go
-import "github.com/xraph/forgerouter"
+import "github.com/xraph/steel"
 
 // Create a simple request logging middleware
-func RequestLoggingMiddleware() forgerouter.OpinionatedMiddleware {
-    return forgerouter.NewMiddleware("request_logging").
+func RequestLoggingMiddleware() steel.OpinionatedMiddleware {
+    return steel.NewMiddleware("request_logging").
         Description("Logs incoming requests with timing information").
-        Before(func(ctx *forgerouter.MiddlewareContext) error {
+        Before(func(ctx *steel.MiddlewareContext) error {
             ctx.StartTime = time.Now()
             log.Printf("Request started: %s %s", ctx.Request.Method, ctx.Request.URL.Path)
             return nil
         }).
-        After(func(ctx *forgerouter.MiddlewareContext) error {
+        After(func(ctx *steel.MiddlewareContext) error {
             duration := time.Since(ctx.StartTime)
             status := ctx.StatusCode
             if status == 0 {
@@ -45,7 +45,7 @@ func RequestLoggingMiddleware() forgerouter.OpinionatedMiddleware {
 }
 
 // Use the middleware
-router := forgerouter.NewRouter()
+router := steel.NewRouter()
 router.UseOpinionated(RequestLoggingMiddleware())
 ```
 
@@ -54,9 +54,9 @@ router.UseOpinionated(RequestLoggingMiddleware())
 The `MiddlewareContext` provides rich information about the request and handler:
 
 ```go
-func ExampleMiddleware() forgerouter.OpinionatedMiddleware {
-    return forgerouter.NewMiddleware("example").
-        Before(func(ctx *forgerouter.MiddlewareContext) error {
+func ExampleMiddleware() steel.OpinionatedMiddleware {
+    return steel.NewMiddleware("example").
+        Before(func(ctx *steel.MiddlewareContext) error {
             // Request information
             method := ctx.Request.Method
             path := ctx.Request.URL.Path
@@ -95,23 +95,23 @@ Opinionated middleware automatically contributes to OpenAPI documentation:
 ### Security Middleware
 
 ```go
-func JWTAuthMiddleware(secretKey string) forgerouter.OpinionatedMiddleware {
-    return forgerouter.NewMiddleware("jwt_auth").
+func JWTAuthMiddleware(secretKey string) steel.OpinionatedMiddleware {
+    return steel.NewMiddleware("jwt_auth").
         Description("JWT Bearer token authentication").
-        Before(func(ctx *forgerouter.MiddlewareContext) error {
+        Before(func(ctx *steel.MiddlewareContext) error {
             authHeader := ctx.Request.Header.Get("Authorization")
             if authHeader == "" {
-                return forgerouter.Unauthorized("Authorization header required")
+                return steel.Unauthorized("Authorization header required")
             }
 
             if !strings.HasPrefix(authHeader, "Bearer ") {
-                return forgerouter.Unauthorized("Bearer token required")
+                return steel.Unauthorized("Bearer token required")
             }
 
             token := authHeader[7:]
             claims, err := validateJWTToken(token, secretKey)
             if err != nil {
-                return forgerouter.Unauthorized("Invalid token")
+                return steel.Unauthorized("Invalid token")
             }
 
             // Store user information in context
@@ -121,14 +121,14 @@ func JWTAuthMiddleware(secretKey string) forgerouter.OpinionatedMiddleware {
             return nil
         }).
         RequiresAuth().
-        AddSecurityRequirement(forgerouter.RequireBearer("JWTAuth")).
+        AddSecurityRequirement(steel.RequireBearer("JWTAuth")).
         AddResponse("401", "Unauthorized - Invalid or missing JWT token").
         AddHeader("Authorization", "JWT Bearer token", true).
         Build()
 }
 
 // Register the security scheme
-router.RegisterSecurityScheme("JWTAuth", forgerouter.BearerAuth(
+router.RegisterSecurityScheme("JWTAuth", steel.BearerAuth(
     "JWT Bearer token authentication",
     "JWT",
 ))
@@ -137,10 +137,10 @@ router.RegisterSecurityScheme("JWTAuth", forgerouter.BearerAuth(
 ### CORS Middleware with OpenAPI Documentation
 
 ```go
-func CORSMiddleware(config CORSConfig) forgerouter.OpinionatedMiddleware {
-    return forgerouter.NewMiddleware("cors").
+func CORSMiddleware(config CORSConfig) steel.OpinionatedMiddleware {
+    return steel.NewMiddleware("cors").
         Description("Cross-Origin Resource Sharing (CORS) middleware").
-        Before(func(ctx *forgerouter.MiddlewareContext) error {
+        Before(func(ctx *steel.MiddlewareContext) error {
             origin := ctx.Request.Header.Get("Origin")
 
             // Check if origin is allowed
@@ -191,12 +191,12 @@ type CORSConfig struct {
 ### Rate Limiting with Metadata
 
 ```go
-func RateLimitMiddleware(config RateLimitConfig) forgerouter.OpinionatedMiddleware {
+func RateLimitMiddleware(config RateLimitConfig) steel.OpinionatedMiddleware {
     store := NewInMemoryRateLimitStore(config.RequestsPerSecond, config.BurstSize)
 
-    return forgerouter.NewMiddleware("rate_limit").
+    return steel.NewMiddleware("rate_limit").
         Description("Rate limiting middleware to prevent abuse").
-        Before(func(ctx *forgerouter.MiddlewareContext) error {
+        Before(func(ctx *steel.MiddlewareContext) error {
             // Get client identifier
             clientID := getClientID(ctx.Request)
 
@@ -207,7 +207,7 @@ func RateLimitMiddleware(config RateLimitConfig) forgerouter.OpinionatedMiddlewa
                 ctx.Headers["X-RateLimit-Remaining"] = "0"
                 ctx.Headers["X-RateLimit-Reset"] = fmt.Sprintf("%d", time.Now().Add(time.Second).Unix())
 
-                return forgerouter.TooManyRequests("Rate limit exceeded")
+                return steel.TooManyRequests("Rate limit exceeded")
             }
 
             // Add rate limit info to successful requests
@@ -236,28 +236,28 @@ Create middleware that works with specific input/output types:
 
 ```go
 // User authentication middleware that works with user-related handlers
-func UserContextMiddleware[TInput any, TOutput any]() forgerouter.TypedMiddleware[TInput, TOutput] {
+func UserContextMiddleware[TInput any, TOutput any]() steel.TypedMiddleware[TInput, TOutput] {
     return &userContextMiddleware[TInput, TOutput]{}
 }
 
 type userContextMiddleware[TInput any, TOutput any] struct{}
 
 func (m *userContextMiddleware[TInput, TOutput]) Process(
-    ctx *forgerouter.FastContext,
+    ctx *steel.Context,
     input *TInput,
     output *TOutput,
-    next forgerouter.TypedNext[TInput, TOutput],
+    next steel.TypedNext[TInput, TOutput],
 ) error {
     // Extract user information from JWT token
     userID := getUserIDFromToken(ctx.Request)
     if userID == "" {
-        return forgerouter.Unauthorized("User authentication required")
+        return steel.Unauthorized("User authentication required")
     }
 
     // Load user from database
     user, err := loadUser(userID)
     if err != nil {
-        return forgerouter.InternalServerError("Failed to load user")
+        return steel.InternalServerError("Failed to load user")
     }
 
     // Add user to request context
@@ -268,8 +268,8 @@ func (m *userContextMiddleware[TInput, TOutput]) Process(
     return next(ctx, input)
 }
 
-func (m *userContextMiddleware[TInput, TOutput]) GetMetadata() forgerouter.MiddlewareMetadata {
-    return forgerouter.MiddlewareMetadata{
+func (m *userContextMiddleware[TInput, TOutput]) GetMetadata() steel.MiddlewareMetadata {
+    return steel.MiddlewareMetadata{
         Name:         "user_context",
         Description:  "Loads user context from authentication token",
         RequiresAuth: true,
@@ -282,12 +282,12 @@ func (m *userContextMiddleware[TInput, TOutput]) GetMetadata() forgerouter.Middl
 Define middleware dependencies and conflicts:
 
 ```go
-func DatabaseTransactionMiddleware() forgerouter.OpinionatedMiddleware {
-    return forgerouter.NewMiddleware("db_transaction").
+func DatabaseTransactionMiddleware() steel.OpinionatedMiddleware {
+    return steel.NewMiddleware("db_transaction").
         Description("Manages database transactions for write operations").
         DependsOn("request_id"). // Requires request ID for logging
         ConflictsWith("read_only"). // Cannot be used with read-only middleware
-        Before(func(ctx *forgerouter.MiddlewareContext) error {
+        Before(func(ctx *steel.MiddlewareContext) error {
             // Only use transactions for write operations
             if ctx.Request.Method == "GET" || ctx.Request.Method == "HEAD" {
                 return nil
@@ -295,13 +295,13 @@ func DatabaseTransactionMiddleware() forgerouter.OpinionatedMiddleware {
 
             tx, err := db.Begin()
             if err != nil {
-                return forgerouter.InternalServerError("Failed to start transaction")
+                return steel.InternalServerError("Failed to start transaction")
             }
 
             ctx.Metadata["db_transaction"] = tx
             return nil
         }).
-        After(func(ctx *forgerouter.MiddlewareContext) error {
+        After(func(ctx *steel.MiddlewareContext) error {
             tx, ok := ctx.Metadata["db_transaction"].(*sql.Tx)
             if !ok || tx == nil {
                 return nil
@@ -313,7 +313,7 @@ func DatabaseTransactionMiddleware() forgerouter.OpinionatedMiddleware {
             } else {
                 if err := tx.Commit(); err != nil {
                     log.Printf("Failed to commit transaction: %v", err)
-                    return forgerouter.InternalServerError("Transaction commit failed")
+                    return steel.InternalServerError("Transaction commit failed")
                 }
             }
 
@@ -327,10 +327,10 @@ func DatabaseTransactionMiddleware() forgerouter.OpinionatedMiddleware {
 ### Error Handling Middleware
 
 ```go
-func ErrorHandlingMiddleware() forgerouter.OpinionatedMiddleware {
-    return forgerouter.NewMiddleware("error_handling").
+func ErrorHandlingMiddleware() steel.OpinionatedMiddleware {
+    return steel.NewMiddleware("error_handling").
         Description("Centralized error handling and logging").
-        OnError(func(ctx *forgerouter.MiddlewareContext, err error) error {
+        OnError(func(ctx *steel.MiddlewareContext, err error) error {
             // Log the error
             log.Printf("Request error [%s]: %s %s - %v",
                 ctx.RequestID, ctx.Request.Method, ctx.Request.URL.Path, err)
@@ -341,12 +341,12 @@ func ErrorHandlingMiddleware() forgerouter.OpinionatedMiddleware {
             }
 
             // Convert to API error if needed
-            if apiErr, ok := err.(forgerouter.APIError); ok {
+            if apiErr, ok := err.(steel.APIError); ok {
                 return apiErr
             }
 
             // Default to internal server error
-            return forgerouter.InternalServerError("An unexpected error occurred")
+            return steel.InternalServerError("An unexpected error occurred")
         }).
         ModifiesResponse().
         Build()
@@ -358,10 +358,10 @@ func ErrorHandlingMiddleware() forgerouter.OpinionatedMiddleware {
 Apply middleware conditionally based on request properties:
 
 ```go
-func ConditionalAuthMiddleware() forgerouter.OpinionatedMiddleware {
-    return forgerouter.NewMiddleware("conditional_auth").
+func ConditionalAuthMiddleware() steel.OpinionatedMiddleware {
+    return steel.NewMiddleware("conditional_auth").
         Description("Authentication required for non-public endpoints").
-        Before(func(ctx *forgerouter.MiddlewareContext) error {
+        Before(func(ctx *steel.MiddlewareContext) error {
             // Skip authentication for public endpoints
             if isPublicEndpoint(ctx.Request.URL.Path) {
                 return nil
@@ -375,13 +375,13 @@ func ConditionalAuthMiddleware() forgerouter.OpinionatedMiddleware {
             // Require authentication for all other requests
             token := ctx.Request.Header.Get("Authorization")
             if token == "" {
-                return forgerouter.Unauthorized("Authentication required")
+                return steel.Unauthorized("Authentication required")
             }
 
             // Validate token
             claims, err := validateToken(token)
             if err != nil {
-                return forgerouter.Unauthorized("Invalid token")
+                return steel.Unauthorized("Invalid token")
             }
 
             ctx.UserID = claims.UserID
@@ -418,7 +418,7 @@ func isPublicEndpoint(path string) bool {
 Apply middleware to all opinionated handlers:
 
 ```go
-router := forgerouter.NewRouter()
+router := steel.NewRouter()
 
 // Global opinionated middleware
 router.UseOpinionated(
@@ -472,7 +472,7 @@ Validate middleware configuration at startup:
 
 ```go
 func main() {
-    router := forgerouter.NewRouter()
+    router := steel.NewRouter()
 
     // Add middleware
     router.UseOpinionated(
@@ -535,8 +535,8 @@ func TestJWTAuthMiddleware(t *testing.T) {
                 req.Header.Set("Authorization", tt.authHeader)
             }
 
-            ctx := &forgerouter.MiddlewareContext{
-                FastContext: &forgerouter.FastContext{
+            ctx := &steel.MiddlewareContext{
+                Context: &steel.Context{
                     Request:  req,
                     Response: httptest.NewRecorder(),
                 },
@@ -576,9 +576,9 @@ import { Callout } from 'nextra/components'
 
 ```go
 // ✅ Good: Efficient middleware with early returns
-func EfficientAuthMiddleware() forgerouter.OpinionatedMiddleware {
-    return forgerouter.NewMiddleware("efficient_auth").
-        Before(func(ctx *forgerouter.MiddlewareContext) error {
+func EfficientAuthMiddleware() steel.OpinionatedMiddleware {
+    return steel.NewMiddleware("efficient_auth").
+        Before(func(ctx *steel.MiddlewareContext) error {
             // Quick checks first
             if ctx.Request.Method == "OPTIONS" {
                 return nil // Skip auth for preflight
@@ -586,13 +586,13 @@ func EfficientAuthMiddleware() forgerouter.OpinionatedMiddleware {
 
             authHeader := ctx.Request.Header.Get("Authorization")
             if authHeader == "" {
-                return forgerouter.Unauthorized("Authorization required")
+                return steel.Unauthorized("Authorization required")
             }
 
             // Validate token (cached validation would be even better)
             claims, err := validateTokenCached(authHeader)
             if err != nil {
-                return forgerouter.Unauthorized("Invalid token")
+                return steel.Unauthorized("Invalid token")
             }
 
             ctx.UserID = claims.UserID
@@ -602,4 +602,4 @@ func EfficientAuthMiddleware() forgerouter.OpinionatedMiddleware {
 }
 ```
 
-Opinionated middleware in ForgeRouter provides a powerful way to add functionality while automatically contributing to API documentation and maintaining type safety.
+Opinionated middleware in Steel provides a powerful way to add functionality while automatically contributing to API documentation and maintaining type safety.

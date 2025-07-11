@@ -1,6 +1,6 @@
 # Examples
 
-Real-world examples showing how to build production-ready APIs with ForgeRouter.
+Real-world examples showing how to build production-ready APIs with Steel.
 
 ## E-commerce API
 
@@ -14,7 +14,7 @@ import (
     "log"
     "net/http"
     "time"
-    router "github.com/xraph/forgerouter"
+    router "github.com/xraph/steel"
 )
 
 // Domain Models
@@ -166,7 +166,7 @@ func main() {
 }
 
 // Handlers
-func getProducts(ctx *router.FastContext, req GetProductsRequest) (*ProductListResponse, error) {
+func getProducts(ctx *router.Context, req GetProductsRequest) (*ProductListResponse, error) {
     // Set defaults
     if req.Page <= 0 {
         req.Page = 1
@@ -196,7 +196,7 @@ func getProducts(ctx *router.FastContext, req GetProductsRequest) (*ProductListR
     }, nil
 }
 
-func createOrder(ctx *router.FastContext, req CreateOrderRequest) (*Order, error) {
+func createOrder(ctx *router.Context, req CreateOrderRequest) (*Order, error) {
     userID := getUserIDFromContext(ctx)
 
     // Validate items
@@ -300,7 +300,7 @@ import (
     "net/http"
     "sync"
     "time"
-    router "github.com/xraph/forgerouter"
+    router "github.com/xraph/steel"
 )
 
 // Chat Models
@@ -534,7 +534,7 @@ package main
 
 import (
     "time"
-    router "github.com/xraph/forgerouter"
+    router "github.com/xraph/steel"
 )
 
 // Task Models
@@ -649,7 +649,7 @@ func main() {
     log.Fatal(http.ListenAndServe(":8080", r))
 }
 
-func createTask(ctx *router.FastContext, req CreateTaskRequest) (*Task, error) {
+func createTask(ctx *router.Context, req CreateTaskRequest) (*Task, error) {
     userID := getUserIDFromContext(ctx)
 
     // Validate user has access to project
@@ -697,7 +697,7 @@ func createTask(ctx *router.FastContext, req CreateTaskRequest) (*Task, error) {
     return task, nil
 }
 
-func updateTask(ctx *router.FastContext, req UpdateTaskRequest) (*Task, error) {
+func updateTask(ctx *router.Context, req UpdateTaskRequest) (*Task, error) {
     userID := getUserIDFromContext(ctx)
 
     // Get existing task
@@ -847,7 +847,7 @@ import (
     "os"
     "path/filepath"
     "time"
-    router "github.com/xraph/forgerouter"
+    router "github.com/xraph/steel"
 )
 
 type FileUpload struct {
@@ -1065,4 +1065,4 @@ func notifyUploadProgress(update UploadProgressUpdate) {
 }
 ```
 
-These examples demonstrate real-world usage patterns with ForgeRouter, showing how to build production-ready APIs with authentication, real-time features, file handling, and comprehensive documentation.
+These examples demonstrate real-world usage patterns with Steel, showing how to build production-ready APIs with authentication, real-time features, file handling, and comprehensive documentation.

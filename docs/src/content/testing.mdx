@@ -1,10 +1,10 @@
 # Testing
 
-ForgeRouter includes comprehensive testing utilities that make it easy to test your APIs with minimal boilerplate. From simple unit tests to complex integration tests and load testing, ForgeRouter has you covered.
+SteelRouter includes comprehensive testing utilities that make it easy to test your APIs with minimal boilerplate. From simple unit tests to complex integration tests and load testing, SteelRouter has you covered.
 
 ## Quick Start
 
-Here's a simple test using ForgeRouter's testing utilities:
+Here's a simple test using SteelRouter's testing utilities:
 
 ```go
 func TestUserAPI(t *testing.T) {
@@ -33,7 +33,7 @@ The `TestRouterBuilder` helps you create routers for testing with common middlew
 ### Basic Setup
 
 ```go
-func setupTestRouter() *router.FastRouter {
+func setupTestRouter() *router.SteelRouter {
     return router.NewTestRouter().
         WithMiddleware(router.Logger).
         WithRecovery().
@@ -85,14 +85,14 @@ func TestCompleteAPI(t *testing.T) {
     router := router.NewTestRouter().
         WithAuth("test-token").
         WithRecovery().
-        WithOpinionatedRoute("GET", "/users/:id", func(ctx *router.FastContext, req GetUserRequest) (*User, error) {
+        WithOpinionatedRoute("GET", "/users/:id", func(ctx *router.Context, req GetUserRequest) (*User, error) {
             user, exists := userDB.GetUser(req.ID)
             if !exists {
                 return nil, router.NotFound("User")
             }
             return user, nil
         }).
-        WithOpinionatedRoute("POST", "/users", func(ctx *router.FastContext, req CreateUserRequest) (*User, error) {
+        WithOpinionatedRoute("POST", "/users", func(ctx *router.Context, req CreateUserRequest) (*User, error) {
             user := userDB.CreateUser(req.Name, req.Email)
             return user, nil
         }).
@@ -263,7 +263,7 @@ router.AssertResponse(t, response).
 
 ## Mock Handlers
 
-ForgeRouter provides utilities for creating mock handlers:
+SteelRouter provides utilities for creating mock handlers:
 
 ### Simple Mocks
 
@@ -319,16 +319,16 @@ func TestUserAPIIntegration(t *testing.T) {
     // Create router with real handlers
     r := router.NewTestRouter().
         WithAuth("test-token").
-        WithOpinionatedRoute("GET", "/users/:id", func(ctx *router.FastContext, req GetUserRequest) (*User, error) {
+        WithOpinionatedRoute("GET", "/users/:id", func(ctx *router.Context, req GetUserRequest) (*User, error) {
             return getUserFromDB(db, req.ID)
         }).
-        WithOpinionatedRoute("POST", "/users", func(ctx *router.FastContext, req CreateUserRequest) (*User, error) {
+        WithOpinionatedRoute("POST", "/users", func(ctx *router.Context, req CreateUserRequest) (*User, error) {
             return createUserInDB(db, req)
         }).
-        WithOpinionatedRoute("PUT", "/users/:id", func(ctx *router.FastContext, req UpdateUserRequest) (*User, error) {
+        WithOpinionatedRoute("PUT", "/users/:id", func(ctx *router.Context, req UpdateUserRequest) (*User, error) {
             return updateUserInDB(db, req)
         }).
-        WithOpinionatedRoute("DELETE", "/users/:id", func(ctx *router.FastContext, req DeleteUserRequest) (*router.APIResponse, error) {
+        WithOpinionatedRoute("DELETE", "/users/:id", func(ctx *router.Context, req DeleteUserRequest) (*router.APIResponse, error) {
             err := deleteUserFromDB(db, req.ID)
             if err != nil {
                 return nil, err
@@ -438,7 +438,7 @@ func TestAuthMiddleware(t *testing.T) {
 
 ## Load Testing
 
-ForgeRouter includes built-in load testing capabilities:
+SteelRouter includes built-in load testing capabilities:
 
 ### Basic Load Test
 
@@ -508,7 +508,7 @@ func TestUserAPILoad(t *testing.T) {
 
 ## Benchmark Testing
 
-Use Go's built-in benchmarking with ForgeRouter's utilities:
+Use Go's built-in benchmarking with SteelRouter's utilities:
 
 ### Basic Benchmarks
 
@@ -801,4 +801,4 @@ func TestIntegration(t *testing.T) {
 }
 ```
 
-ForgeRouter's testing utilities make it easy to write comprehensive tests that give you confidence in your API's reliability and performance.
+SteelRouter's testing utilities make it easy to write comprehensive tests that give you confidence in your API's reliability and performance.

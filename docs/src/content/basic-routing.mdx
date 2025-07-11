@@ -1,11 +1,11 @@
 # Basic Routing
 
-ForgeRouter provides a fast and flexible routing system built on a radix tree for optimal performance. Learn the fundamentals of URL routing, parameter extraction, and route organization.
+Steel provides a fast and flexible routing system built on a radix tree for optimal performance. Learn the fundamentals of URL routing, parameter extraction, and route organization.
 
 ## Creating a Router
 
 ```go
-import router "github.com/xraph/forgerouter"
+import router "github.com/xraph/steel"
 
 func main() {
     r := router.NewRouter()
@@ -18,7 +18,7 @@ func main() {
 
 ## HTTP Methods
 
-ForgeRouter supports all standard HTTP methods:
+Steel supports all standard HTTP methods:
 
 ```go
 r := router.NewRouter()
@@ -83,7 +83,7 @@ r.GET("/users/:userId/posts/:postId", func(w http.ResponseWriter, r *http.Reques
 
 ### Parameter Constraints
 
-While ForgeRouter doesn't have built-in parameter constraints, you can validate them in your handlers:
+While Steel doesn't have built-in parameter constraints, you can validate them in your handlers:
 
 ```go
 r.GET("/users/:id", func(w http.ResponseWriter, r *http.Request) {
@@ -142,7 +142,7 @@ r.GET("/assets/*", func(w http.ResponseWriter, r *http.Request) {
 
 ## Route Priority
 
-ForgeRouter matches routes in this order:
+Steel matches routes in this order:
 
 1. **Static routes** (exact matches)
 2. **Parameter routes** (`:param`)
@@ -218,7 +218,7 @@ r.Route("/api", func(api router.Router) {
 ### Practical Example
 
 ```go
-func setupRoutes() *router.FastRouter {
+func setupRoutes() *router.SteelRouter {
     r := router.NewRouter()
 
     // Public routes
@@ -316,7 +316,7 @@ func main() {
 
 ## Query Parameters
 
-Access query parameters using the standard library or FastContext:
+Access query parameters using the standard library or Context:
 
 ### Standard Way
 
@@ -330,11 +330,11 @@ r.GET("/search", func(w http.ResponseWriter, r *http.Request) {
 })
 ```
 
-### With FastContext
+### With Context
 
 ```go
 r.GET("/search", func(w http.ResponseWriter, r *http.Request) {
-    ctx := &router.FastContext{
+    ctx := &router.Context{
         Request:  r,
         Response: w,
     }
@@ -527,7 +527,7 @@ if os.Getenv("ENV") == "development" {
 
 Output example:
 ```
-=== FastRouter Debug Info ===
+=== Steel Debug Info ===
 Method: GET
   Path: "", HasHandler: true, IsParam: false, ParamName: "", Wildcard: false
   Path: "users", HasHandler: false, IsParam: false, ParamName: "", Wildcard: false
@@ -544,7 +544,7 @@ Method: POST
 import { Callout } from 'nextra/components'
 
 <Callout type="info">
-    **Performance**: ForgeRouter uses a radix tree for O(log n) route lookup and pools parameter objects to minimize allocations.
+    **Performance**: Steel uses a radix tree for O(log n) route lookup and pools parameter objects to minimize allocations.
 </Callout>
 
 ### Route Organization
@@ -615,7 +615,7 @@ func setupUserRoutes(r router.Router) {
 ### API Versioning
 
 ```go
-func setupVersionedAPI(r *router.FastRouter) {
+func setupVersionedAPI(r *router.SteelRouter) {
     // Version 1
     r.Route("/api/v1", func(v1 router.Router) {
         v1.GET("/users", v1GetUsers)
@@ -657,4 +657,4 @@ r.GET("/api/data", func(w http.ResponseWriter, r *http.Request) {
 })
 ```
 
-Basic routing in ForgeRouter provides a solid foundation for building scalable web applications with clean, maintainable URL structures.
+Basic routing in Steel provides a solid foundation for building scalable web applications with clean, maintainable URL structures.

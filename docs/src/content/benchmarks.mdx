@@ -1,21 +1,21 @@
 # Benchmarks & Performance
 
-ForgeRouter is designed for high performance while maintaining rich features like automatic OpenAPI generation. This guide covers performance benchmarks, comparisons with other routers, and optimization strategies.
+Steel is designed for high performance while maintaining rich features like automatic OpenAPI generation. This guide covers performance benchmarks, comparisons with other routers, and optimization strategies.
 
 ## Quick Performance Overview
 
-Based on comprehensive benchmarks on Apple M3 Max (ARM64), ForgeRouter demonstrates competitive performance:
+Based on comprehensive benchmarks on Apple M3 Max (ARM64), Steel demonstrates competitive performance:
 
 | Router | ns/op | B/op | allocs/op | Relative Speed |
 |--------|-------|------|-----------|----------------|
 | **Gin** | 87.6 | 48 | 1 | 1.00x (fastest) |
-| **FastRouter** | 208.5 | 386 | 4 | 2.38x |
+| **Steel** | 208.5 | 386 | 4 | 2.38x |
 | **Chi** | 210.7 | 370 | 3 | 2.41x |
 
 import { Callout } from 'nextra/components'
 
 <Callout type="info">
-    **Performance Note**: While ForgeRouter is 2.4x slower than Gin in synthetic benchmarks, it provides significant additional features like automatic OpenAPI generation, typed handlers, and advanced middleware that Gin lacks.
+    **Performance Note**: While Steel is 2.4x slower than Gin in synthetic benchmarks, it provides significant additional features like automatic OpenAPI generation, typed handlers, and advanced middleware that Gin lacks.
 </Callout>
 
 ## Running Benchmarks
@@ -87,7 +87,7 @@ GET /static/css/style.css
 
 **Expected Performance:**
 - **Fastest routers**: 50-100 ns/op
-- **ForgeRouter**: 80-150 ns/op
+- **Steel**: 80-150 ns/op
 - **Feature-rich routers**: 100-300 ns/op
 
 ### 2. Parameter Routes
@@ -106,7 +106,7 @@ DELETE /posts/:id
 **Expected Performance:**
 - **Parameter extraction overhead**: +20-50 ns/op
 - **Memory allocation**: 32-128 B/op for parameter storage
-- **ForgeRouter**: 100-200 ns/op with efficient parameter handling
+- **Steel**: 100-200 ns/op with efficient parameter handling
 
 ### 3. Wildcard Routes
 
@@ -139,7 +139,7 @@ Tests performance impact of middleware chains:
 **Middleware Performance Impact:**
 - **Each middleware**: +10-50 ns/op overhead
 - **Memory allocations**: Varies by middleware complexity
-- **ForgeRouter advantage**: Opinionated middleware optimizations
+- **Steel advantage**: Opinionated middleware optimizations
 
 ### 5. Memory Allocation Benchmarks
 
@@ -175,12 +175,12 @@ Tests performance under concurrent load:
 ### Understanding the Numbers
 
 ```bash
-BenchmarkParameterRoutes/FastRouter_/users/123-8    5000000    208.5 ns/op    386 B/op    4 allocs/op
+BenchmarkParameterRoutes/Steel_/users/123-8    5000000    208.5 ns/op    386 B/op    4 allocs/op
 ```
 
 **Breaking down the result:**
 - `BenchmarkParameterRoutes`: Test category
-- `FastRouter_/users/123`: Specific test case
+- `Steel_/users/123`: Specific test case
 - `-8`: GOMAXPROCS (CPU cores used)
 - `5000000`: Number of iterations run
 - `208.5 ns/op`: Nanoseconds per operation (lower = faster)
@@ -222,13 +222,13 @@ Router C: 150 ns/op  # 1.5x slower (50% slower)
 | **HttpRouter** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐ | ❌ | ⭐ | ❌ |
 | **Gin** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐ | ⭐⭐⭐ | ❌ |
 | **Chi** | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐ | ⭐⭐⭐⭐ | ❌ |
-| **FastRouter** | ⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
+| **Steel** | ⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
 | **Echo** | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐ | ⭐⭐⭐⭐ | ❌ |
 | **GorillaMux** | ⭐⭐ | ⭐⭐ | ⭐⭐⭐⭐ | ⭐ | ⭐⭐⭐ | ❌ |
 
-### When to Choose ForgeRouter
+### When to Choose Steel
 
-**Choose ForgeRouter when you need:**
+**Choose Steel when you need:**
 - Automatic OpenAPI documentation generation
 - Type-safe request/response handling
 - Advanced middleware with documentation integration
@@ -289,7 +289,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 }
 
 // ✅ Good: Minimize allocations in hot paths
-func (r *FastRouter) findRoute(path string) Handler {
+func (r *Steel) findRoute(path string) Handler {
     // Reuse slices, avoid string concatenation
     // Use efficient algorithms
 }
@@ -299,14 +299,14 @@ func (r *FastRouter) findRoute(path string) Handler {
 
 ```go
 // ✅ Good: Efficient opinionated handlers
-func GetUser(ctx *forgerouter.FastContext, req GetUserRequest) (*GetUserResponse, error) {
+func GetUser(ctx *steel.Context, req GetUserRequest) (*GetUserResponse, error) {
     // Direct field access (no reflection in runtime)
     userID := req.ID
 
     // Efficient database query
     user, err := db.GetUser(userID)
     if err != nil {
-        return nil, forgerouter.NotFound("User")
+        return nil, steel.NotFound("User")
     }
 
     return &GetUserResponse{User: user}, nil
@@ -370,7 +370,7 @@ go run analysis.go > benchmark_analysis.txt
 # Router       ns/op        B/op         allocs/op    Relative
 # ----------------------------------------------------------------------
 # Gin          87.6         48           1            1.00x
-# FastRouter   208.5        386          4            2.38x
+# Steel   208.5        386          4            2.38x
 # Chi          210.7        370          3            2.41x
 ```
 
@@ -531,7 +531,7 @@ func BenchmarkUnrealistic(b *testing.B) {
 
 ## Conclusion
 
-ForgeRouter strikes a balance between performance and features:
+Steel strikes a balance between performance and features:
 
 - **Raw Performance**: 2-3x slower than minimal routers
 - **Feature Set**: Significantly more comprehensive than faster alternatives
@@ -544,4 +544,4 @@ The choice between routers should consider:
 3. **Maintenance burden** vs **raw speed**
 4. **Team expertise** vs **optimal performance**
 
-For most applications, ForgeRouter's feature set outweighs the minor performance overhead, especially when considering the time saved in development and maintenance.
+For most applications, Steel's feature set outweighs the minor performance overhead, especially when considering the time saved in development and maintenance.
