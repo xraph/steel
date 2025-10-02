@@ -215,7 +215,7 @@ func NewInMemoryRateLimitStore(rps float64, burst int) RateLimitStore {
 		burst:    burst,
 	}
 
-	// Start cleanup goroutine
+	// OnStart cleanup goroutine
 	go func() {
 		ticker := time.NewTicker(time.Minute)
 		defer ticker.Stop()

@@ -757,7 +757,7 @@ func TestConcurrency(t *testing.T) {
 	const numRequests = 100
 	results := make(chan bool, numRequests)
 
-	// Start multiple goroutines making requests
+	// OnStart multiple goroutines making requests
 	for i := 0; i < numRequests; i++ {
 		go func() {
 			req := httptest.NewRequest("GET", "/test", nil)

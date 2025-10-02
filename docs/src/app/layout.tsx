@@ -8,7 +8,7 @@ export const metadata = {
     // For more information on metadata API, see: https://nextjs.org/docs/app/building-your-application/optimizing/metadata
 }
 
-const banner = <Banner storageKey="some-key">Steel Router is in alpha 🎉</Banner>
+const banner = <Banner storageKey="some-key">Steel is in alpha 🎉</Banner>
 const navbar = (
     <Navbar
         logo={<b>STEEL ROUTER</b>}
